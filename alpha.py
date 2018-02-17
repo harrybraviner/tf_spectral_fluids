@@ -38,14 +38,31 @@ def eularian_dt_single(v_dft, nu_k_squared, cmpt):
 
     raise NotImplementedError
 
-def get_nu_k_squared(shape, nu):
+def get_nu_k_squared(N_x, N_y, N_z, nu):
     """The squared magnitude of the wavenumber for each index, multiplied
     by the kinematic viscosity
 
     Arguments:
-        shape: the shape of the tensor to be produced
+        N_x, N_y, N_z : The number of collocation points in each direction
         nu: the kinematic viscosity
+    Returns:
+        An ndarray of shape [N_x, N_y, N_z//2 + 1]
     """
 
-    raise NotImplementedError
-    
+    # This is because of the compressed representation of the DFT
+    # of a real-valued field in position space
+    def index_mod(i, n):
+        if i < n//2:
+            return i
+        else:
+            return i - n
+
+    k_x_2 = np.array([(2.0*np.pi*index_mod(i, N_x))**2 for i in range(N_x)])
+    k_y_2 = np.array([(2.0*np.pi*index_mod(j, N_y))**2 for j in range(N_y)])
+    k_z_2 = np.array([(2.0*np.pi*k)**2 for k in range(N_z//2 + 1)])
+
+    return \
+        nu * (k_x_2.reshape([N_x, 1, 1]).repeat(repeats=N_y, axis=1).repeat(repeats=(N_z//2 + 1), axis=2) + \
+        k_y_2.reshape([1, N_y, 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_z//2 + 1), axis=2) + \
+        k_z_2.reshape([1, 1, N_z//2 + 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_y), axis=1))
+        
