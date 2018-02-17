@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import unittest
-import shearing_box
+import alpha
 
 class ShearingBoxTests(unittest.TestCase):
     """Note: the tests in this class only check that the
@@ -19,9 +19,9 @@ class ShearingBoxTests(unittest.TestCase):
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         v_dft = [vx_dft, vy_dft, vz_dft]
 
-        D_x = shearing_box.eularian_dt_single(v_dft, 0.1, 0.2, 0)
-        D_y = shearing_box.eularian_dt_single(v_dft, 0.1, 0.2, 1)
-        D_z = shearing_box.eularian_dt_single(v_dft, 0.1, 0.2, 2)
+        D_x = alpha.eularian_dt_single(v_dft, 0.1, 0.2, 0)
+        D_y = alpha.eularian_dt_single(v_dft, 0.1, 0.2, 1)
+        D_z = alpha.eularian_dt_single(v_dft, 0.1, 0.2, 2)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
