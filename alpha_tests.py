@@ -14,14 +14,16 @@ class ShearingBoxTests(unittest.TestCase):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 
+        nu_k_squared = alpha.get_nu_k_squared(shape, 1.0)
+
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         v_dft = [vx_dft, vy_dft, vz_dft]
 
-        D_x = alpha.eularian_dt_single(v_dft, 0.1, 0.2, 0)
-        D_y = alpha.eularian_dt_single(v_dft, 0.1, 0.2, 1)
-        D_z = alpha.eularian_dt_single(v_dft, 0.1, 0.2, 2)
+        D_x = alpha.eularian_dt_single(v_dft, nu_k_squared, 0)
+        D_y = alpha.eularian_dt_single(v_dft, nu_k_squared, 1)
+        D_z = alpha.eularian_dt_single(v_dft, nu_k_squared, 2)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
