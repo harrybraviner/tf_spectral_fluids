@@ -24,8 +24,45 @@ def eularian_dt_no_pressure(v_dft):
     """
     raise NotImplementedError
 
+def velocity_convolution(v_dft):
+    """The convolution (in wavenumber space) of the velocity components.
+    Needed to compute the DFT of the advection term.
+
+    Arguments:
+        v_dft: the DFT of the three velocity components (an array of three tensors).
+    Returns:
+        An array where conv[i][j] = (convolution of v_dft_i with v_dft_j).
+        Each entry is a tensor over wavenumbers.
+    """
+
+    def index_to_direction(i):
+        if i==0:
+            return "x"
+        elif i==1:
+            return "y"
+        elif i==2:
+            return "z"
+
+    def inv_name(i):
+        return "inverse_dft_v" + index_to_direction(i)
+
+    def fwd_name(i, j):
+        return "dft_v_" + index_to_direction(i) + "_v_" + index_to_direction(j)
+
+    v = [tf.spectral.irfft3d(v_dft[i], name = inv_name(i)) for i in range(3)]
+
+    
+    conv = [[ tf.spectral.rfft3d(v[i] * v[j], name = fwd_name(i,j)) if i <= j else None
+             for j in range(3)]
+        for i in range(3) ]
+
+    conv = [[conv[i][j] if i <= j else conv[j][i] for j in range(3)]
+        for i in range(3) ]
+
+    return conv
+
 def eularian_dt_single(v_dft, nu_k_squared, cmpt):
-    """The Eurlarian derivative of the velocity, absent the pressure term,
+    """The Eularian derivative of the velocity, absent the pressure term,
     for a single component.
 
     Arguments:
@@ -36,6 +73,7 @@ def eularian_dt_single(v_dft, nu_k_squared, cmpt):
     """
     
     # FIXME - temporary attempt, only does viscosity
+    # FIXME - component name
     D = tf.multiply(v_dft[cmpt], nu_k_squared, name = "NS_viscosity")
 
     return D

@@ -10,6 +10,28 @@ class ShearingBoxTests(unittest.TestCase):
     are in fact correct!
     """
 
+    def test_convolution(self):
+        N_x = 16; N_y = 8; N_z = 32
+        shape = [N_x, N_y, 1 + N_z//2]
+
+        vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        v_dft = [vx_dft, vy_dft, vz_dft]
+
+        conv = alpha.velocity_convolution(v_dft)
+
+        # Check off-diagonal elements are bound to same tensors
+        self.assertEqual(conv[0][1].name, conv[1][0].name)
+        self.assertEqual(conv[0][2].name, conv[2][0].name)
+        self.assertEqual(conv[1][2].name, conv[2][1].name)
+
+        # Check that all tensors are of the expected type
+        for i in range(3):
+            for j in range(3):
+                self.assertEqual(conv[i][j].dtype, tf.complex64)
+                self.assertEqual(conv[i][j].shape.as_list(), shape)
+
     def test_eularian_dt_x_cmpt(self):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
