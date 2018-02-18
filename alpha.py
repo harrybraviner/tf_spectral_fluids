@@ -69,7 +69,7 @@ def eularian_dt_single(v_dft, vv_dft, nu_k_squared, cmpt):
         v_dft: the DFT of the three velocity components (a list of three tensors).
         vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
         nu_k_squared: The squared magnitude of the wavenumber for each index,
-                      multiplied by -j * kinematic viscosity. Tensor.
+                      multiplied by the kinematic viscosity. Tensor.
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
     
@@ -82,13 +82,15 @@ def eularian_dt_single(v_dft, vv_dft, nu_k_squared, cmpt):
     #D_adv = 
 
     # Viscoity
-    D = tf.multiply(v_dft[cmpt], nu_k_squared, name = "NS_viscosity")
+    D = -1j*tf.multiply(v_dft[cmpt],
+                        tf.cast(nu_k_squared, dtype=tf.complex64),
+                        name = "NS_viscosity")
 
     return D
 
 def get_nu_k_squared(N_x, N_y, N_z, nu):
     """The squared magnitude of the wavenumber for each index, multiplied
-    by the kinematic viscosity and by -j
+    by the kinematic viscosity
 
     Arguments:
         N_x, N_y, N_z : The number of collocation points in each direction
@@ -110,7 +112,7 @@ def get_nu_k_squared(N_x, N_y, N_z, nu):
     k_z_2 = np.array([(2.0*np.pi*k)**2 for k in range(N_z//2 + 1)])
 
     return \
-        -1j * nu * (k_x_2.reshape([N_x, 1, 1]).repeat(repeats=N_y, axis=1).repeat(repeats=(N_z//2 + 1), axis=2) + \
+        nu * (k_x_2.reshape([N_x, 1, 1]).repeat(repeats=N_y, axis=1).repeat(repeats=(N_z//2 + 1), axis=2) + \
         k_y_2.reshape([1, N_y, 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_z//2 + 1), axis=2) + \
         k_z_2.reshape([1, 1, N_z//2 + 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_y), axis=1))
         

@@ -36,7 +36,7 @@ class ShearingBoxTests(unittest.TestCase):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 
-        nu_k_squared = alpha.get_nu_k_squared(N_x, N_y, N_z, 1.0)
+        nu_k_squared = tf.Variable(alpha.get_nu_k_squared(N_x, N_y, N_z, 1.0), dtype=tf.float32)
 
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
@@ -71,19 +71,19 @@ class ShearingBoxTests(unittest.TestCase):
         actual_0 = nu_k_squared[0, 0, 0]
         self.assertEqual(expected_0, actual_0)
 
-        expected_1 = -1j*nu*(2.0 * np.pi)**2
+        expected_1 = nu*(2.0 * np.pi)**2
         actual_1 = nu_k_squared[1, 0, 0]
         self.assertEqual(expected_1, actual_1)
 
-        expected_2 = -1j*nu*(-2.0 * np.pi)**2
+        expected_2 = nu*(-2.0 * np.pi)**2
         actual_2 = nu_k_squared[N_x-1, 0, 0]
         self.assertEqual(expected_2, actual_2)
 
-        expected_3 = -1j*nu*((2.0*np.pi*3.0)**2 + (2.0*np.pi*2.0)**2)
+        expected_3 = nu*((2.0*np.pi*3.0)**2 + (2.0*np.pi*2.0)**2)
         actual_3 = nu_k_squared[3, 2, 0]
         self.assertEqual(expected_3, actual_3)
 
-        expected_4 = -1j*nu*(2.0*np.pi*16)**2
+        expected_4 = nu*(2.0*np.pi*16)**2
         actual_4 = nu_k_squared[0, 0, 16]
         self.assertEqual(expected_4, actual_4)
     
