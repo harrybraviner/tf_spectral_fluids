@@ -61,12 +61,13 @@ def velocity_convolution(v_dft):
 
     return conv
 
-def eularian_dt_single(v_dft, nu_k_squared, cmpt):
+def eularian_dt_single(v_dft, vv_dft, nu_k_squared, cmpt):
     """The Eularian derivative of the velocity, absent the pressure term,
     for a single component.
 
     Arguments:
-        v_dft: the DFT of the three velocity components (an array of three tensors).
+        v_dft: the DFT of the three velocity components (a list of three tensors).
+        vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
         nu_k_squared: The squared magnitude of the wavenumber for each index,
                       multiplied by -j * kinematic viscosity. Tensor.
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
@@ -74,6 +75,13 @@ def eularian_dt_single(v_dft, nu_k_squared, cmpt):
     
     # FIXME - temporary attempt, only does viscosity
     # FIXME - component name
+
+    
+    # Advection
+    # FIXME - write advection
+    #D_adv = 
+
+    # Viscoity
     D = tf.multiply(v_dft[cmpt], nu_k_squared, name = "NS_viscosity")
 
     return D
@@ -106,3 +114,26 @@ def get_nu_k_squared(N_x, N_y, N_z, nu):
         k_y_2.reshape([1, N_y, 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_z//2 + 1), axis=2) + \
         k_z_2.reshape([1, 1, N_z//2 + 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_y), axis=1))
         
+def get_k_cmpts(N_x, N_y, N_z):
+    """The x, y, and z components of the wavevectors.
+
+    Arguments:
+        N_x, N_y, N_z : The number of collocation points in each direction
+
+    Returns:
+        A list of three ndarrays, of shapes [N_x, 1, 1], [1, N_y, 1], and [1, 1, N_z//2 + 1] respectively.
+    """
+
+    # This is because of the compressed representation of the DFT
+    # of a real-valued field in position space
+    def index_mod(i, n):
+        if i < n//2:
+            return i
+        else:
+            return i - n
+
+    k_x = np.array([2.0*np.pi*index_mod(i, N_x) for i in range(N_x)]).reshape([N_x, 1, 1])
+    k_y = np.array([2.0*np.pi*index_mod(j, N_y) for j in range(N_y)]).reshape([1, N_y, 1])
+    k_z = np.array([2.0*np.pi*k for k in range(N_z//2 + 1)]).reshape([1, 1, N_z//2 + 1])
+
+    return [k_x, k_y, k_z]
