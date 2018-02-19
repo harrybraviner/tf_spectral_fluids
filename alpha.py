@@ -3,7 +3,7 @@
 import tensorflow as tf
 import numpy as np
 
-def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared):
+def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, nu):
     """Computes the Eularian derivative of the velocity.
     i.e. \partial_{t'} v = eularian_dt
     
@@ -15,10 +15,17 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared):
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
 
-    D_x = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, 0)
-    D_y = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, 1)
-    D_z = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, 2)
+    D_x = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 0)
+    D_y = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 1)
+    D_z = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 2)
 
+#    p_dft =
+#        -1j*tf.divide(
+#                tf.multiply(k_cmpts[0], D_x) \
+#              + tf.multiple(k_cmpts[1], D_y) \
+#              + tf.multiply(k_cmpts[2], D_z),
+#                k_squared)
+#    tf.nd_scatter_up
     
     raise NotImplementedError
 
@@ -107,6 +114,25 @@ def get_k_squared(N_x, N_y, N_z):
         k_x_2.reshape([N_x, 1, 1]).repeat(repeats=N_y, axis=1).repeat(repeats=(N_z//2 + 1), axis=2) + \
         k_y_2.reshape([1, N_y, 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_z//2 + 1), axis=2) + \
         k_z_2.reshape([1, 1, N_z//2 + 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_y), axis=1)
+
+def get_inverse_k_squared(N_x, N_y, N_z):
+    """The inverse squared magnitude of the wavenumber for each index.
+    The [0, 0, 0] element is 0.0 for masking reasons for the
+    pressure gradient calculation.
+
+    Arguments:
+        N_x, N_y, N_z : The number of collocation points in each direction
+    Returns:
+        An ndarray of shape [N_x, N_y, N_z//2 + 1]
+    """
+
+    k_sq = get_k_squared(N_x, N_y, N_z)
+    k_sq[0, 0, 0] = 1.0 # This is suppress a divide-by-zero warning
+    inv_k_sq = 1.0 / k_sq
+    inv_k_sq[0, 0, 0] = 0.0
+
+    return inv_k_sq
+
         
 def get_k_cmpts(N_x, N_y, N_z):
     """The x, y, and z components of the wavevectors.
