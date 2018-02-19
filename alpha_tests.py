@@ -188,12 +188,11 @@ class ShearingBoxTests(unittest.TestCase):
         x = tf.Variable(1.5, dtype=tf.complex64)
         y = tf.Variable(0.0, dtype=tf.complex64)
 
-        def get_dx_dt(x):
-            return [2.0*x[0], 1.0]
+        dx_dt = [2.0*x, tf.constant(1.0, shape=(), dtype=tf.complex64)]
 
         h = 0.01
 
-        step_op = alpha_integration.fwd_euler_timestep([x, y], get_dx_dt, h)
+        step_op = alpha_integration.fwd_euler_timestep([x, y], dx_dt, h)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
