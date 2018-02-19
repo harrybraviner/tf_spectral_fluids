@@ -3,25 +3,23 @@
 import tensorflow as tf
 import numpy as np
 
-def eularian_dt(v_dft, a, a_dot):
+def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared):
     """Computes the Eularian derivative of the velocity.
     i.e. \partial_{t'} v = eularian_dt
     
     Arguments:
         v_dft: the DFT of the three velocity components (an array of three tensors)
-        a : the current shear amplitude
-        a_dot : the current time derivative of the shear
+        vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
+        k_cmpts: the wavevector components in each directions (a list of three tensors).
+        k_squared: the squared magnitude of the wavenumber for each index. Tensor
+        cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
-    raise NotImplementedError
 
-def eularian_dt_no_pressure(v_dft):
-    """The Eularian derivative of the velocity, absent the pressure term.
-    This is because we need to know all 3 components of this field before we
-    are able to compute the pressure field.
+    D_x = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, 0)
+    D_y = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, 1)
+    D_z = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, 2)
+
     
-    Arguments:
-        v_dft: the DFT of the three velocity components (an array of three tensors)
-    """
     raise NotImplementedError
 
 def velocity_convolution(v_dft):
@@ -59,7 +57,7 @@ def velocity_convolution(v_dft):
 
     return conv
 
-def eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, cmpt):
+def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
     """The Eularian derivative of the velocity, absent the pressure term,
     for a single component.
 
@@ -67,8 +65,7 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, cmpt):
         v_dft: the DFT of the three velocity components (a list of three tensors).
         vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
         k_cmpts: the wavevector components in each directions (a list of three tensors).
-        nu_k_squared: the squared magnitude of the wavenumber for each index,
-                      multiplied by the kinematic viscosity. Tensor.
+        k_squared: the squared magnitude of the wavenumber for each index. Tensor.
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
     
@@ -78,20 +75,18 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, cmpt):
                  + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), vv_dft[2][cmpt]))
 
     # Viscoity
-    D_visc = -1j*tf.multiply(v_dft[cmpt],
-                             tf.cast(nu_k_squared, dtype=tf.complex64),
-                             name = "NS_viscosity")
+    D_visc = -1j*nu*tf.multiply(v_dft[cmpt],
+                                tf.cast(k_squared, dtype=tf.complex64),
+                                name = "NS_viscosity")
 
     D = D_adv + D_visc
     return D
 
-def get_nu_k_squared(N_x, N_y, N_z, nu):
-    """The squared magnitude of the wavenumber for each index, multiplied
-    by the kinematic viscosity
+def get_k_squared(N_x, N_y, N_z):
+    """The squared magnitude of the wavenumber for each index.
 
     Arguments:
         N_x, N_y, N_z : The number of collocation points in each direction
-        nu: the kinematic viscosity
     Returns:
         An ndarray of shape [N_x, N_y, N_z//2 + 1]
     """
@@ -109,9 +104,9 @@ def get_nu_k_squared(N_x, N_y, N_z, nu):
     k_z_2 = np.array([(2.0*np.pi*k)**2 for k in range(N_z//2 + 1)])
 
     return \
-        nu * (k_x_2.reshape([N_x, 1, 1]).repeat(repeats=N_y, axis=1).repeat(repeats=(N_z//2 + 1), axis=2) + \
+        k_x_2.reshape([N_x, 1, 1]).repeat(repeats=N_y, axis=1).repeat(repeats=(N_z//2 + 1), axis=2) + \
         k_y_2.reshape([1, N_y, 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_z//2 + 1), axis=2) + \
-        k_z_2.reshape([1, 1, N_z//2 + 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_y), axis=1))
+        k_z_2.reshape([1, 1, N_z//2 + 1]).repeat(repeats=N_x, axis=0).repeat(repeats=(N_y), axis=1)
         
 def get_k_cmpts(N_x, N_y, N_z):
     """The x, y, and z components of the wavevectors.
