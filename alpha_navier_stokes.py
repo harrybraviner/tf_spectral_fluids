@@ -36,8 +36,8 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
     neg_p_dz_dft = +1j*tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), p_dft)
 
     v_x_dt = D_x + neg_p_dx_dft
-    v_y_dt = D_x + neg_p_dy_dft
-    v_z_dt = D_x + neg_p_dz_dft
+    v_y_dt = D_y + neg_p_dy_dft
+    v_z_dt = D_z + neg_p_dz_dft
 
     # FIXME - need to add anti-aliasing masking to this
 
@@ -96,9 +96,9 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
                  + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), vv_dft[2][cmpt]))
 
     # Viscoity
-    D_visc = -1j*nu*tf.multiply(v_dft[cmpt],
-                                tf.cast(k_squared, dtype=tf.complex64),
-                                name = "NS_viscosity")
+    D_visc = -nu*tf.multiply(v_dft[cmpt],
+                             tf.cast(k_squared, dtype=tf.complex64),
+                             name = "NS_viscosity")
 
     D = D_adv + D_visc
     return D

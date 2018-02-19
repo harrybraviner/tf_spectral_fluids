@@ -24,6 +24,10 @@ def fwd_euler_timestep(x, dx_dt, h):
 def run_simulation():
     
     N = 8
+    nu = 1.0
+    h = 1e-3
+    t_stop = 10.0
+    t_log = 0.1
 
     def setup_sinusoid(N):
         """Returns the dft of the velocity field
@@ -38,17 +42,17 @@ def run_simulation():
         
         v_x = np.zeros(shape=[N, N, N//2 + 1], dtype=np.complex64)
         v_y = np.zeros(shape=[N, N, N//2 + 1], dtype=np.complex64)
-        v_y[1,   0, 0] = 1j*N
-        v_y[N-1, 0, 0] = 1j*N
+        v_y[1,   0, 0] = +0.5j*N*N*N
+        v_y[N-1, 0, 0] = -0.5j*N*N*N
         v_z = np.zeros(shape=[N, N, N//2 + 1], dtype=np.complex64)
 
         return [v_x, v_y, v_z]
 
     v_dft_0 = setup_sinusoid(N)
 
-    v_dft_x = tf.Variable(v_0[0], dtype=tf.complex64)
-    v_dft_y = tf.Variable(v_0[1], dtype=tf.complex64)
-    v_dft_z = tf.Variable(v_0[2], dtype=tf.complex64)
+    v_dft_x = tf.Variable(v_dft_0[0], dtype=tf.complex64)
+    v_dft_y = tf.Variable(v_dft_0[1], dtype=tf.complex64)
+    v_dft_z = tf.Variable(v_dft_0[2], dtype=tf.complex64)
     v_dft = [v_dft_x, v_dft_y, v_dft_z]
     
     vv_dft = alpha_navier_stokes.velocity_convolution(v_dft)
@@ -57,9 +61,37 @@ def run_simulation():
     k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N, N, N), dtype=tf.float32)
     inv_k_squared = tf.Variable(alpha_navier_stokes.get_inverse_k_squared(N, N, N), dtype=tf.float32)
 
-    # FIXME - Kinda concerned about the consistency of the updates here
-    #         i.e. vv_dft depends on v_dft but isn't passed into the lambda as an argument
-    #         Should I even be passing v_dft in? Can I just pass the dx_dt tensor??
-    #get_v_dft_dt = lambda v_dft : alpha_navier_stokes.eularian_dt(v_dft, vv_dft, 
+    v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, nu)
 
-    #step_op = 
+    step_op = fwd_euler_timestep(v_dft, v_dft_dt, h)
+
+    def get_energy(field_dft):
+        # Need to double-count the k_z != 0 components due to the half-real representation
+        # Would this be more efficient as a broadcast of [[[1.0, 2.0, 2.0, ..., 2.0]]]?
+        a = 2.0*tf.reduce_sum(tf.multiply(field_dft, tf.conj(field_dft)))
+        b = tf.reduce_sum(tf.multiply(field_dft[:, :, 0], tf.conj(field_dft[:, :, 0])))
+        return (1.0/(2.0*(N*N*N)**2))*(a - b)
+
+    kinetic_energy_x = get_energy(v_dft_x)
+    kinetic_energy_y = get_energy(v_dft_y)
+    kinetic_energy_z = get_energy(v_dft_z)
+    kinetic_energy = kinetic_energy_x + kinetic_energy_y + kinetic_energy_z
+
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+
+    t = 0.0
+    t_next_log = t + t_log
+
+    while(t < t_stop):
+        step_op.run(session = sess)
+        t += h
+
+        if (t >= t_next_log):
+            ke = kinetic_energy.eval(session=sess)
+            print("t: {}\tKE: {}".format(t, ke))
+            while(t_next_log <= t):
+                t_next_log += t_log
+
+if __name__ == '__main__':
+    run_simulation()
