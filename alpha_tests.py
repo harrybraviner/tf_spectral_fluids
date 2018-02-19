@@ -32,7 +32,35 @@ class ShearingBoxTests(unittest.TestCase):
                 self.assertEqual(conv[i][j].dtype, tf.complex64)
                 self.assertEqual(conv[i][j].shape.as_list(), shape)
 
-    def test_eularian_dt_x_cmpt(self):
+    def test_eularian_dt(self):
+        N_x = 16; N_y = 8; N_z = 32
+        shape = [N_x, N_y, 1 + N_z//2]
+
+        nu = 0.1
+
+        k_squared = tf.Variable(alpha.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+        inv_k_squared = tf.Variable(alpha.get_inverse_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+
+        vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+
+        v_dft = [vx_dft, vy_dft, vz_dft]
+        vv_dft = alpha.velocity_convolution(v_dft)
+        k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha.get_k_cmpts(N_x, N_y, N_z)]
+
+        v_dt = alpha.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, nu)
+
+        v_x_dt, v_y_dt, v_z_dt = v_dt
+
+        self.assertEqual(v_x_dt.dtype, tf.complex64)
+        self.assertEqual(v_x_dt.shape.as_list(), shape)
+        self.assertEqual(v_y_dt.dtype, tf.complex64)
+        self.assertEqual(v_y_dt.shape.as_list(), shape)
+        self.assertEqual(v_z_dt.dtype, tf.complex64)
+        self.assertEqual(v_z_dt.shape.as_list(), shape)
+        
+    def test_eularian_dt_cmpts(self):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 

@@ -3,7 +3,7 @@
 import tensorflow as tf
 import numpy as np
 
-def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, nu):
+def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
     """Computes the Eularian derivative of the velocity.
     i.e. \partial_{t'} v = eularian_dt
     
@@ -12,22 +12,34 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, nu):
         vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
         k_cmpts: the wavevector components in each directions (a list of three tensors).
         k_squared: the squared magnitude of the wavenumber for each index. Tensor
+        inverse_k_squared: the inverse squared magnitude of the wavenumber for each index, with the zero entry masked. Tensor
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
+
+    Returns:
+        Time derivates of DFTs of velocity components (a list of 3 tensors).
     """
 
     D_x = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 0)
     D_y = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 1)
     D_z = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 2)
 
-#    p_dft =
-#        -1j*tf.divide(
-#                tf.multiply(k_cmpts[0], D_x) \
-#              + tf.multiple(k_cmpts[1], D_y) \
-#              + tf.multiply(k_cmpts[2], D_z),
-#                k_squared)
-#    tf.nd_scatter_up
+    p_dft = \
+        -1j*tf.multiply(
+                tf.multiply(tf.cast(k_cmpts[0], dtype=tf.complex64), D_x) \
+              + tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), D_y) \
+              + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), D_z),
+                tf.cast(inverse_k_squared, dtype=tf.complex64))
     
-    raise NotImplementedError
+    # Negative of pressure gradients (i.e. direction of pressure force)
+    neg_p_dx_dft = +1j*tf.multiply(tf.cast(k_cmpts[0], dtype=tf.complex64), p_dft)
+    neg_p_dy_dft = +1j*tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), p_dft)
+    neg_p_dz_dft = +1j*tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), p_dft)
+
+    v_x_dt = D_x + neg_p_dx_dft
+    v_y_dt = D_x + neg_p_dy_dft
+    v_z_dt = D_x + neg_p_dz_dft
+
+    return [v_x_dt, v_y_dt, v_z_dt]
 
 def velocity_convolution(v_dft):
     """The convolution (in wavenumber space) of the velocity components.
