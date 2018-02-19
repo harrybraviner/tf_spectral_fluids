@@ -2,7 +2,7 @@
 
 import tensorflow as tf
 import numpy as np
-import functools
+import functools, time
 import alpha_navier_stokes
 
 def fwd_euler_timestep(x, dx_dt, h):
@@ -95,8 +95,12 @@ def run_simulation():
     kinetic_energy_z = get_energy(v_dft_z)
     kinetic_energy = kinetic_energy_x + kinetic_energy_y + kinetic_energy_z
 
-    sess = tf.Session()
+    #sess = tf.Session()
+    sess = tf.Session(config=tf.ConfigProto(device_count = {'GPU' : 0}))
     sess.run(tf.global_variables_initializer())
+
+    wall_clock_time_at_start = time.time()
+    timesteps_taken = 0
 
     t = 0.0
     t_next_log = t + t_log
@@ -104,12 +108,18 @@ def run_simulation():
     while(t < t_stop):
         step_op.run(session = sess)
         t += h
+        timesteps_taken += 1
 
         if (t >= t_next_log):
             ke = kinetic_energy.eval(session=sess)
             print("t: {}\tKE: {}".format(t, ke))
             while(t_next_log <= t):
                 t_next_log += t_log
+
+    wall_clock_time_at_end = time.time()
+    seconds_elapsed = wall_clock_time_at_end - wall_clock_time_at_start
+    print('Runtime was {} s'.format(seconds_elapsed))
+    print('Time per timestep: {} s'.format(seconds_elapsed / timesteps_taken))
 
 if __name__ == '__main__':
     run_simulation()
