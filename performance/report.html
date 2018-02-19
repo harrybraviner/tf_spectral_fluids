@@ -1,0 +1,7 @@
+<h1>Forward Euler with no CFL condition</h1>
+
+<p>The state of the code as of this commit has only forward Euler timestepping.
+It has no CFL condition (so timestep is constant) and also lacks aliasing masking.
+I did some runs just to see how the time-per-step varied between the CPU and GPU.</p>
+
+<p><img src="./commit_37e336c6/time_per_step.png" alt="Time-per-step plot" title="" /></p>

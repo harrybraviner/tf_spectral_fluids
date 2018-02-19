@@ -1,0 +1,8 @@
+# Time per step for commit 37e336c6
+#N	laptop	desktop_cpu	desktop_gpu
+8	5.47e-4	9.03e-4	1.26e-2
+16	3.07e-3	3.71e-3	1.27e-2
+32	2.40e-2	2.69e-2	1.28e-2
+64	2.08e-1	2.06e-1	1.50e-2
+128	nan	1.596	3.50e-2
+256	nan	nan	2.44e-1
