@@ -39,6 +39,8 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
     v_y_dt = D_x + neg_p_dy_dft
     v_z_dt = D_x + neg_p_dz_dft
 
+    # FIXME - need to add anti-aliasing masking to this
+
     return [v_x_dt, v_y_dt, v_z_dt]
 
 def velocity_convolution(v_dft):

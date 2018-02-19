@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import unittest
-import alpha
+import alpha_navier_stokes, alpha_integration
 
 class ShearingBoxTests(unittest.TestCase):
     """Note: the tests in this class only check that the
@@ -9,6 +9,12 @@ class ShearingBoxTests(unittest.TestCase):
     There is no checking that the fields that are produced
     are in fact correct!
     """
+
+    def assertAlmostEqual(self, expected, actual, eps):
+        diff = actual - expected
+        if (abs(diff) > eps):
+            message = expected + " != " + actual
+            raise AssertionError(message)
 
     def test_convolution(self):
         N_x = 16; N_y = 8; N_z = 32
@@ -19,7 +25,7 @@ class ShearingBoxTests(unittest.TestCase):
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         v_dft = [vx_dft, vy_dft, vz_dft]
 
-        conv = alpha.velocity_convolution(v_dft)
+        conv = alpha_navier_stokes.velocity_convolution(v_dft)
 
         # Check off-diagonal elements are bound to same tensors
         self.assertEqual(conv[0][1].name, conv[1][0].name)
@@ -38,18 +44,18 @@ class ShearingBoxTests(unittest.TestCase):
 
         nu = 0.1
 
-        k_squared = tf.Variable(alpha.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
-        inv_k_squared = tf.Variable(alpha.get_inverse_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+        k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+        inv_k_squared = tf.Variable(alpha_navier_stokes.get_inverse_k_squared(N_x, N_y, N_z), dtype=tf.float32)
 
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
 
         v_dft = [vx_dft, vy_dft, vz_dft]
-        vv_dft = alpha.velocity_convolution(v_dft)
-        k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha.get_k_cmpts(N_x, N_y, N_z)]
+        vv_dft = alpha_navier_stokes.velocity_convolution(v_dft)
+        k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)]
 
-        v_dt = alpha.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, nu)
+        v_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, nu)
 
         v_x_dt, v_y_dt, v_z_dt = v_dt
 
@@ -66,19 +72,19 @@ class ShearingBoxTests(unittest.TestCase):
 
         nu = 0.1
 
-        k_squared = tf.Variable(alpha.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+        k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
 
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
 
         v_dft = [vx_dft, vy_dft, vz_dft]
-        vv_dft = alpha.velocity_convolution(v_dft)
-        k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha.get_k_cmpts(N_x, N_y, N_z)]
+        vv_dft = alpha_navier_stokes.velocity_convolution(v_dft)
+        k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)]
 
-        D_x = alpha.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 0)
-        D_y = alpha.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 1)
-        D_z = alpha.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 2)
+        D_x = alpha_navier_stokes.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 0)
+        D_y = alpha_navier_stokes.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 1)
+        D_z = alpha_navier_stokes.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 2)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
@@ -96,7 +102,7 @@ class ShearingBoxTests(unittest.TestCase):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 
-        k_squared = alpha.get_k_squared(N_x, N_y, N_z)
+        k_squared = alpha_navier_stokes.get_k_squared(N_x, N_y, N_z)
 
         expected_0 = 0.0
         actual_0 = k_squared[0, 0, 0]
@@ -122,7 +128,7 @@ class ShearingBoxTests(unittest.TestCase):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 
-        inv_k_squared = alpha.get_inverse_k_squared(N_x, N_y, N_z)
+        inv_k_squared = alpha_navier_stokes.get_inverse_k_squared(N_x, N_y, N_z)
         
         # This should be zero for masking
         expected_0 = 0.0
@@ -148,7 +154,7 @@ class ShearingBoxTests(unittest.TestCase):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 
-        k_cmpts = alpha.get_k_cmpts(N_x, N_y, N_z)
+        k_cmpts = alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)
 
         self.assertEqual((N_x, 1, 1), k_cmpts[0].shape)
         self.assertEqual((1, N_y, 1), k_cmpts[1].shape)
@@ -177,3 +183,24 @@ class ShearingBoxTests(unittest.TestCase):
         expected_5 = 2.0*np.pi*16.0
         actual_5 = k_cmpts[2][0, 0, 16]
         self.assertEqual(expected_5, actual_5)
+
+    def test_forward_euler_timestep(self):
+        x = tf.Variable(1.5, dtype=tf.complex64)
+        y = tf.Variable(0.0, dtype=tf.complex64)
+
+        def get_dx_dt(x):
+            return [2.0*x[0], 1.0]
+
+        h = 0.01
+
+        step_op = alpha_integration.fwd_euler_timestep([x, y], get_dx_dt, h)
+
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+
+        step_op.run(session=sess)
+        step_op.run(session=sess)
+
+        self.assertAlmostEqual(1.5606+0j, x.eval(session=sess), 1e-6)
+        self.assertAlmostEqual(0.02+0j,   y.eval(session=sess), 1e-6)
+
