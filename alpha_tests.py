@@ -192,7 +192,8 @@ class ShearingBoxTests(unittest.TestCase):
 
         h = 0.01
 
-        step_op = alpha_integration.fwd_euler_timestep([x, y], dx_dt, h)
+        [x_, y_] = alpha_integration.fwd_euler_timestep([x, y], dx_dt, h)
+        step_op = alpha_integration.multi_assign_op([x, y], [x_, y_])
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())

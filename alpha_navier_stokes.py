@@ -87,6 +87,7 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
         vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
         k_cmpts: the wavevector components in each directions (a list of three tensors).
         k_squared: the squared magnitude of the wavenumber for each index. Tensor.
+        nu: Kinematic viscosity. Use None to skip the viscous dissipation.
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
     
@@ -96,12 +97,38 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
                  + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), vv_dft[2][cmpt]))
 
     # Viscoity
-    D_visc = -nu*tf.multiply(v_dft[cmpt],
-                             tf.cast(k_squared, dtype=tf.complex64),
-                             name = "NS_viscosity")
+    if nu is not None:
+        D_visc = -nu*tf.multiply(v_dft[cmpt],
+                                 tf.cast(k_squared, dtype=tf.complex64),
+                                 name = "NS_viscosity")
 
-    D = D_adv + D_visc
+    if nu is not None:
+        D = D_adv + D_visc
+    else:
+        D = D_adv
     return D
+
+def implicit_viscosity(v_dft, k_squared, nu, h):
+    """The velocity field decayed by the viscosity.
+    This is more stable than using explicit dissipation.
+
+    Arguments:
+        v_dft:
+        v_dft: the DFT of the three velocity components (a list of three tensors).
+        k_squared: the squared magnitude of the wavenumber for each index. Tensor.
+        nu: Kinematic viscosity. Use None to skip the viscous dissipation.
+        h: The timestep
+
+    Returns:
+        The velocity components decayed by the viscosity (a list of 3 tensors).
+    """
+
+    decay = tf.cast(tf.exp(-nu*h*k_squared), dtype=tf.complex64)
+    v_dft_x_visc = tf.multiply(decay, v_dft[0])
+    v_dft_y_visc = tf.multiply(decay, v_dft[1])
+    v_dft_z_visc = tf.multiply(decay, v_dft[2])
+
+    return [v_dft_x_visc, v_dft_y_visc, v_dft_z_visc]
 
 def get_k_squared(N_x, N_y, N_z):
     """The squared magnitude of the wavenumber for each index.

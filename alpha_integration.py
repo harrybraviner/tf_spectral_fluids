@@ -14,12 +14,27 @@ def fwd_euler_timestep(x, dx_dt, h):
         h: Step size
 
     Returns:
-        An operation that performs a single update.
+        A list of tensors respresenting the forward-stepped values.
     """
 
     x_ = [xi + h*dxi_dt for (xi, dxi_dt) in zip(x, dx_dt)]
+    return x_
+
+
+def multi_assign_op(x, x_):
+    """Assigns the tensors in x_ to the tensors in x
+
+    Arguments:
+        x : A list of tensors
+        x_ : A list of tensors, each of the same shape as those in x
+
+    Returns:
+        An operation performing an update
+    """
 
     return functools.reduce(tf.group, [xi.assign(xi_) for (xi, xi_) in zip(x, x_)])
+
+
 
 def run_simulation():
     
@@ -61,9 +76,12 @@ def run_simulation():
     k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N, N, N), dtype=tf.float32)
     inv_k_squared = tf.Variable(alpha_navier_stokes.get_inverse_k_squared(N, N, N), dtype=tf.float32)
 
-    v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, nu)
+    v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, None)
 
-    step_op = fwd_euler_timestep(v_dft, v_dft_dt, h)
+    v_dft_after_explicit_update = fwd_euler_timestep(v_dft, v_dft_dt, h)
+    v_dft_ = alpha_navier_stokes.implicit_viscosity(v_dft_after_explicit_update, k_squared, nu, h)
+
+    step_op = multi_assign_op(v_dft, v_dft_)
 
     def get_energy(field_dft):
         # Need to double-count the k_z != 0 components due to the half-real representation
