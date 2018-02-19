@@ -49,9 +49,7 @@ def velocity_convolution(v_dft):
     def fwd_name(i, j):
         return "dft_v_" + index_to_direction(i) + "_v_" + index_to_direction(j)
 
-    v = [tf.spectral.irfft3d(v_dft[i], name = inv_name(i)) for i in range(3)]
-
-    
+    v = [tf.spectral.irfft3d(v_dft[i], name = inv_name(i)) for i in range(3)] 
     conv = [[ tf.spectral.rfft3d(v[i] * v[j], name = fwd_name(i,j)) if i <= j else None
              for j in range(3)]
         for i in range(3) ]
@@ -61,31 +59,30 @@ def velocity_convolution(v_dft):
 
     return conv
 
-def eularian_dt_single(v_dft, vv_dft, nu_k_squared, cmpt):
+def eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, cmpt):
     """The Eularian derivative of the velocity, absent the pressure term,
     for a single component.
 
     Arguments:
         v_dft: the DFT of the three velocity components (a list of three tensors).
         vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
-        nu_k_squared: The squared magnitude of the wavenumber for each index,
+        k_cmpts: the wavevector components in each directions (a list of three tensors).
+        nu_k_squared: the squared magnitude of the wavenumber for each index,
                       multiplied by the kinematic viscosity. Tensor.
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
     
-    # FIXME - temporary attempt, only does viscosity
-    # FIXME - component name
-
-    
     # Advection
-    # FIXME - write advection
-    #D_adv = 
+    D_adv = -1j*(tf.multiply(tf.cast(k_cmpts[0], dtype=tf.complex64), vv_dft[0][cmpt]) \
+                 + tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), vv_dft[1][cmpt]) \
+                 + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), vv_dft[2][cmpt]))
 
     # Viscoity
-    D = -1j*tf.multiply(v_dft[cmpt],
-                        tf.cast(nu_k_squared, dtype=tf.complex64),
-                        name = "NS_viscosity")
+    D_visc = -1j*tf.multiply(v_dft[cmpt],
+                             tf.cast(nu_k_squared, dtype=tf.complex64),
+                             name = "NS_viscosity")
 
+    D = D_adv + D_visc
     return D
 
 def get_nu_k_squared(N_x, N_y, N_z, nu):

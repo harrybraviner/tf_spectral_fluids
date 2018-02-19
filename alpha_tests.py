@@ -41,11 +41,14 @@ class ShearingBoxTests(unittest.TestCase):
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
-        v_dft = [vx_dft, vy_dft, vz_dft]
 
-        D_x = alpha.eularian_dt_single(v_dft, None, nu_k_squared, 0)
-        D_y = alpha.eularian_dt_single(v_dft, None, nu_k_squared, 1)
-        D_z = alpha.eularian_dt_single(v_dft, None, nu_k_squared, 2)
+        v_dft = [vx_dft, vy_dft, vz_dft]
+        vv_dft = alpha.velocity_convolution(v_dft)
+        k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha.get_k_cmpts(N_x, N_y, N_z)]
+
+        D_x = alpha.eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, 0)
+        D_y = alpha.eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, 1)
+        D_z = alpha.eularian_dt_single(v_dft, vv_dft, k_cmpts, nu_k_squared, 2)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
