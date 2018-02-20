@@ -14,11 +14,61 @@ def fwd_euler_timestep(x, dx_dt, h):
         h: Step size
 
     Returns:
-        A list of tensors respresenting the forward-stepped values.
+        An operation.
     """
 
     x_ = [xi + h*dxi_dt for (xi, dxi_dt) in zip(x, dx_dt)]
-    return x_
+    return functools.reduce(tf.group, [xi.assign(xi_) for (xi, xi_) in zip(x, x_)])
+
+def rk3_timestep(x, dx_dt, h):
+    """Returns an operation to perform an RK3 timestep.
+
+    Arguments:
+        x: List of tensors whose values are to be updated by the operation.
+        dx_dt: A list of tensors (which should be built from x) giving the time derivatives.
+        h: Step size
+
+    Returns:
+        An operation.
+    """
+    gamma = [8.0/15.0, 5.0/12.0, 3.0/4.0]
+    xi = [-17.0/60.0, -5.0/12.0]
+
+    # Define variables for our auxilliary storage
+    x1 = [tf.Variable(x) for x in x]
+    dx_dt_ = [tf.Variable(d) for d in dx_dt]    # Need this because updating x will update its value
+
+    #step_1_d = functools.reduce(tf.group, [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)])
+    step_1_d = [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)]
+    step_1_x = [x.assign(x + gamma[0]*h*d) for (x, d) in zip(x, step_1_d)]
+    step_1_x1 = [x1.assign(x + xi[0]*h*d) for (x1, x, d) in zip(x1, step_1_x, step_1_d)]
+
+    step_1_op = functools.reduce(tf.group, step_1_d + step_1_x + step_1_x1)
+
+    with tf.get_default_graph().control_dependencies([step_1_op]):
+        step_2_d = [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)] # This isn't updating properly - why not?
+        step_2_x = [x.assign(x1 + gamma[1]*h*d) for (x, x1, d) in zip(x, step_1_x1, step_2_d)]
+        step_2_x1 = [x1.assign(x + xi[1]*h*d) for (x1, x, d) in zip(x1, step_2_x, step_2_d)]
+
+        step_2_op = functools.reduce(tf.group, step_2_d + step_2_x + step_2_x1)
+
+
+    with tf.get_default_graph().control_dependencies([step_2_op]):
+        step_3_d = [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)]
+        step_3_x = [x.assign(x1 + gamma[2]*h*d) for (x, x1, d) in zip(x, x1, step_3_d)]
+
+        step_3_op = functools.reduce(tf.group, step_3_d + step_3_x)
+
+    #return functools.reduce(tf.group, [step_1_op, step_2_op, step_3_op])
+    return functools.reduce(tf.group, [step_1_op, step_2_op])
+    #return step_1_op
+
+#def implicit_viscosity_step(x, k_squared, nu, h):
+#    """Returns an operation which decays the velocity by the viscosity.
+#
+#    Arguments:
+#        x: List of tensors that will be updated by the operation.
+#        k_squared: The 
 
 
 def multi_assign_op(x, x_):
@@ -81,10 +131,12 @@ def run_simulation():
 
     v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, None)
 
-    v_dft_after_explicit_update = fwd_euler_timestep(v_dft, v_dft_dt, h)
-    v_dft_ = alpha_navier_stokes.implicit_viscosity(v_dft_after_explicit_update, k_squared, nu, h)
+    explicit_step_op = fwd_euler_timestep(v_dft, v_dft_dt, h)
 
-    step_op = multi_assign_op(v_dft, v_dft_)
+    v_dft_post_decay = alpha_navier_stokes.implicit_viscosity(v_dft, k_squared, nu, h)
+    implicit_step_op = multi_assign_op(v_dft, v_dft_post_decay)
+
+    #step_op = multi_assign_op(v_dft, v_dft_)
 
     def get_energy(field_dft):
         # Need to double-count the k_z != 0 components due to the half-real representation
@@ -109,7 +161,8 @@ def run_simulation():
     t_next_log = t + t_log
 
     while(t < t_stop):
-        step_op.run(session = sess)
+        explicit_step_op.run(session = sess)
+        implicit_step_op.run(session = sess)
         t += h
         timesteps_taken += 1
 

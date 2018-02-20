@@ -13,7 +13,7 @@ class ShearingBoxTests(unittest.TestCase):
     def assertAlmostEqual(self, expected, actual, eps):
         diff = actual - expected
         if (abs(diff) > eps):
-            message = expected + " != " + actual
+            message = str(expected) + " != " + str(actual)
             raise AssertionError(message)
 
     def test_convolution(self):
@@ -242,8 +242,7 @@ class ShearingBoxTests(unittest.TestCase):
 
         h = 0.01
 
-        [x_, y_] = alpha_integration.fwd_euler_timestep([x, y], dx_dt, h)
-        step_op = alpha_integration.multi_assign_op([x, y], [x_, y_])
+        step_op = alpha_integration.fwd_euler_timestep([x, y], dx_dt, h)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
@@ -253,3 +252,62 @@ class ShearingBoxTests(unittest.TestCase):
 
         self.assertAlmostEqual(1.5606+0j, x.eval(session=sess), 1e-6)
         self.assertAlmostEqual(0.02+0j,   y.eval(session=sess), 1e-6)
+
+    def test_rk3_timestep(self):
+        x = tf.Variable(1.5, dtype=tf.complex64)
+        y = tf.Variable(0.0, dtype=tf.complex64)
+
+        dx_dt = [2.0*x, tf.constant(1.0, shape=(), dtype=tf.complex64)]
+
+        h = 0.01
+
+        step_op = alpha_integration.rk3_timestep([x, y], dx_dt, h)
+
+        # Imperitive version
+        x_imp = np.array([1.5 + 0j, 0.0 + 0j])
+
+        gamma = [8.0/15.0, 5.0/12.0, 3.0/4.0]
+        xi = [-17.0/60.0, -5.0/12.0]
+
+        def dx_dt_imp(x):
+            return np.array([2.0*x[0], 1.0])
+
+        def rk3_imp(x):
+            # Step 1
+            D = dx_dt_imp(x)
+            x = x + gamma[0] * h * D
+            x1 = x + xi[0] *h * D
+            # Step 2
+            D = dx_dt_imp(x)
+            x = x1 + gamma[1] * h * D
+            x1 = x + xi[1] * h * D
+            return x
+            # Step 3
+            D = dx_dt_imp(x)
+            x = x1 + gamma[2] * h * D
+            return x
+
+        expected_0 = x_imp
+        expected_1 = rk3_imp(x_imp)
+        expected_2 = rk3_imp(expected_1)
+        expected_3 = rk3_imp(expected_2)
+
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+
+        print(expected_0[0])
+        print(x.eval(session=sess))
+
+        step_op.run(session=sess)
+        print(expected_1[0])
+        print(x.eval(session=sess))
+        self.assertAlmostEqual(expected_1[0], x.eval(session=sess), 1e-6)
+        self.assertAlmostEqual(expected_1[1], y.eval(session=sess), 1e-6)
+
+        step_op.run(session=sess)
+        self.assertAlmostEqual(expected_2[0], x.eval(session=sess), 1e-6)
+        self.assertAlmostEqual(expected_2[1], y.eval(session=sess), 1e-6)
+
+        step_op.run(session=sess)
+        self.assertAlmostEqual(expected_3[0], x.eval(session=sess), 1e-6)
+        self.assertAlmostEqual(expected_3[1], y.eval(session=sess), 1e-6)
