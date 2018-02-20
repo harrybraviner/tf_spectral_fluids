@@ -20,12 +20,15 @@ class ShearingBoxTests(unittest.TestCase):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
 
+        k_cmpts = alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)
+        masks = [tf.Variable(m, dtype=tf.float16) for m in alpha_navier_stokes.get_antialiasing_masks(k_cmpts)]
+
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         v_dft = [vx_dft, vy_dft, vz_dft]
 
-        conv = alpha_navier_stokes.velocity_convolution(v_dft)
+        conv = alpha_navier_stokes.velocity_convolution(v_dft, masks)
 
         # Check off-diagonal elements are bound to same tensors
         self.assertEqual(conv[0][1].name, conv[1][0].name)
@@ -46,13 +49,15 @@ class ShearingBoxTests(unittest.TestCase):
 
         k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
         inv_k_squared = tf.Variable(alpha_navier_stokes.get_inverse_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+        k_cmpts = alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)
+        masks = [tf.Variable(m, dtype=tf.float16) for m in alpha_navier_stokes.get_antialiasing_masks(k_cmpts)]
 
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
 
         v_dft = [vx_dft, vy_dft, vz_dft]
-        vv_dft = alpha_navier_stokes.velocity_convolution(v_dft)
+        vv_dft = alpha_navier_stokes.velocity_convolution(v_dft, masks)
         k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)]
 
         v_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, nu)
@@ -73,13 +78,15 @@ class ShearingBoxTests(unittest.TestCase):
         nu = 0.1
 
         k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N_x, N_y, N_z), dtype=tf.float32)
+        k_cmpts = alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)
+        masks = [tf.Variable(m, dtype=tf.float16) for m in alpha_navier_stokes.get_antialiasing_masks(k_cmpts)]
 
         vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
         vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
 
         v_dft = [vx_dft, vy_dft, vz_dft]
-        vv_dft = alpha_navier_stokes.velocity_convolution(v_dft)
+        vv_dft = alpha_navier_stokes.velocity_convolution(v_dft, masks)
         k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)]
 
         D_x = alpha_navier_stokes.eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 0)

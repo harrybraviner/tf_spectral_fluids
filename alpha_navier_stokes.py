@@ -43,12 +43,13 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
 
     return [v_x_dt, v_y_dt, v_z_dt]
 
-def velocity_convolution(v_dft):
+def velocity_convolution(v_dft, masks):
     """The convolution (in wavenumber space) of the velocity components.
     Needed to compute the DFT of the advection term.
 
     Arguments:
         v_dft: the DFT of the three velocity components (an array of three tensors).
+        masks: the masks for anti-aliasing (a list of three tensors).
     Returns:
         An array where conv[i][j] = (convolution of v_dft_i with v_dft_j).
         Each entry is a tensor over wavenumbers.
@@ -72,6 +73,14 @@ def velocity_convolution(v_dft):
     conv = [[ tf.spectral.rfft3d(v[i] * v[j], name = fwd_name(i,j)) if i <= j else None
              for j in range(3)]
         for i in range(3) ]
+
+    if masks is not None:
+        conv = [[None if conv[i][j] is None else
+                    tf.multiply(tf.cast(masks[0], dtype=tf.complex64),
+                        tf.multiply(tf.cast(masks[1], dtype=tf.complex64),
+                            tf.multiply(tf.cast(masks[2], dtype=tf.complex64), conv[i][j])))
+                 for j in range(3)]
+            for i in range(3)]
 
     conv = [[conv[i][j] if i <= j else conv[j][i] for j in range(3)]
         for i in range(3) ]
