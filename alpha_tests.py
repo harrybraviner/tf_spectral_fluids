@@ -184,6 +184,49 @@ class ShearingBoxTests(unittest.TestCase):
         actual_5 = k_cmpts[2][0, 0, 16]
         self.assertEqual(expected_5, actual_5)
 
+    def test_get_antialiasing_masks(self):
+        N_x = 16; N_y = 8; N_z = 32
+        shape = [N_x, N_y, 1 + N_z//2]
+
+        k_cmpts = alpha_navier_stokes.get_k_cmpts(N_x, N_y, N_z)
+        masks = alpha_navier_stokes.get_antialiasing_masks(k_cmpts)
+
+        self.assertEqual((N_x, 1, 1), masks[0].shape)
+        self.assertEqual((1, N_y, 1), masks[1].shape)
+        self.assertEqual((1, 1, N_z//2 + 1), masks[2].shape)
+
+        expected_0 = 1.0
+        actual_0 = masks[0][0, 0, 0]
+        self.assertEqual(expected_0, actual_0)
+
+        expected_1 = 1.0
+        actual_1 = masks[0][5, 0, 0]
+        self.assertEqual(expected_1, actual_1)
+
+        expected_2 = 0.0
+        actual_2 = masks[0][6, 0, 0]
+        self.assertEqual(expected_2, actual_2)
+
+        expected_3 = 0.0
+        actual_3 = masks[0][8, 0, 0]
+        self.assertEqual(expected_3, actual_3)
+
+        expected_4 = 1.0
+        actual_4 = masks[0][11, 0, 0]
+        self.assertEqual(expected_4, actual_4)
+
+        expected_5 = 0.0
+        actual_5 = masks[0][10, 0, 0]
+        self.assertEqual(expected_5, actual_5)
+
+        expected_6 = 1.0
+        actual_6 = masks[2][0, 0, 10]
+        self.assertEqual(expected_6, actual_6)
+
+        expected_7 = 0.0
+        actual_7 = masks[2][0, 0, 11]
+        self.assertEqual(expected_7, actual_7)
+
     def test_forward_euler_timestep(self):
         x = tf.Variable(1.5, dtype=tf.complex64)
         y = tf.Variable(0.0, dtype=tf.complex64)
@@ -203,4 +246,3 @@ class ShearingBoxTests(unittest.TestCase):
 
         self.assertAlmostEqual(1.5606+0j, x.eval(session=sess), 1e-6)
         self.assertAlmostEqual(0.02+0j,   y.eval(session=sess), 1e-6)
-

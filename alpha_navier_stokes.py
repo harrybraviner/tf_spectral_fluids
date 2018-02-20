@@ -198,3 +198,23 @@ def get_k_cmpts(N_x, N_y, N_z):
     k_z = np.array([2.0*np.pi*k for k in range(N_z//2 + 1)]).reshape([1, 1, N_z//2 + 1])
 
     return [k_x, k_y, k_z]
+
+def get_antialiasing_masks(k_cmpts):
+    """Masks for anti-aliasing.
+
+    Arguments:
+        k_cmpts : The wave-vector componets, a list of three ndarrays.
+
+    Returns:
+        A list of three ndarrays, of shapes [N_x, 1, 1], [1, N_y, 1], and [1, 1, N_z//2 + 1] respectively.
+    """
+
+    k_x_max = np.max(abs(k_cmpts[0]))
+    k_y_max = np.max(abs(k_cmpts[1]))
+    k_z_max = np.max(abs(k_cmpts[2]))
+
+    x_mask = np.array([0.0 if abs(k) > (2.0/3.0)*k_x_max else 1.0 for k in k_cmpts[0].flatten()]).reshape(k_cmpts[0].shape)
+    y_mask = np.array([0.0 if abs(k) > (2.0/3.0)*k_y_max else 1.0 for k in k_cmpts[1].flatten()]).reshape(k_cmpts[1].shape)
+    z_mask = np.array([0.0 if abs(k) > (2.0/3.0)*k_z_max else 1.0 for k in k_cmpts[2].flatten()]).reshape(k_cmpts[2].shape)
+
+    return [x_mask, y_mask, z_mask]
