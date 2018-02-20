@@ -4,4 +4,9 @@
 It has no CFL condition (so timestep is constant) and also lacks aliasing masking.
 I did some runs just to see how the time-per-step varied between the CPU and GPU.</p>
 
-<p><img src="./commit_37e336c6/time_per_step.png" alt="Time-per-step plot" title="" /></p>
+<p><img src="./1_commit_37e336c6/time_per_step.png" alt="Time-per-step plot" title="" /></p>
+<h1>Adding in anti-aliasing</h1>
+
+<p>Anti-aliasing does increase the runtime:</p>
+
+<p><img src="./2_commit_04fbf979/time_gpu.png" alt="Anti-aliasing effect on runtime" title="" /></p>

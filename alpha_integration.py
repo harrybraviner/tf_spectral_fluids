@@ -38,7 +38,7 @@ def multi_assign_op(x, x_):
 
 def run_simulation():
     
-    N = 256
+    N = 32
     nu = 1.0
     h = 1e-3
     t_stop = 10.0
