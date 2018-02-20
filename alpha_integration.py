@@ -38,7 +38,7 @@ def multi_assign_op(x, x_):
 
 def run_simulation():
     
-    N = 8
+    N = 256
     nu = 1.0
     h = 1e-3
     t_stop = 10.0
@@ -70,7 +70,10 @@ def run_simulation():
     v_dft_z = tf.Variable(v_dft_0[2], dtype=tf.complex64)
     v_dft = [v_dft_x, v_dft_y, v_dft_z]
     
-    vv_dft = alpha_navier_stokes.velocity_convolution(v_dft)
+    masks = [tf.Variable(m, dtype=tf.float16)
+             for m in alpha_navier_stokes.get_antialiasing_masks(alpha_navier_stokes.get_k_cmpts(N, N, N))]
+
+    vv_dft = alpha_navier_stokes.velocity_convolution(v_dft, masks)
 
     k_cmpts = [tf.Variable(k, dtype=tf.float32) for k in alpha_navier_stokes.get_k_cmpts(N, N, N)]
     k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N, N, N), dtype=tf.float32)
@@ -96,7 +99,7 @@ def run_simulation():
     kinetic_energy = kinetic_energy_x + kinetic_energy_y + kinetic_energy_z
 
     #sess = tf.Session()
-    sess = tf.Session(config=tf.ConfigProto(device_count = {'GPU' : 0}))
+    sess = tf.Session(config=tf.ConfigProto(device_count = {'GPU' : 1}))
     sess.run(tf.global_variables_initializer())
 
     wall_clock_time_at_start = time.time()
