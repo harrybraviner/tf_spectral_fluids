@@ -247,8 +247,8 @@ class ShearingBoxTests(unittest.TestCase):
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
 
-        step_op.run(session=sess)
-        step_op.run(session=sess)
+        step_op(session=sess)
+        step_op(session=sess)
 
         self.assertAlmostEqual(1.5606+0j, x.eval(session=sess), 1e-6)
         self.assertAlmostEqual(0.02+0j,   y.eval(session=sess), 1e-6)
@@ -281,7 +281,6 @@ class ShearingBoxTests(unittest.TestCase):
             D = dx_dt_imp(x)
             x = x1 + gamma[1] * h * D
             x1 = x + xi[1] * h * D
-            return x
             # Step 3
             D = dx_dt_imp(x)
             x = x1 + gamma[2] * h * D
@@ -295,19 +294,21 @@ class ShearingBoxTests(unittest.TestCase):
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
 
-        print(expected_0[0])
-        print(x.eval(session=sess))
+#        print(expected_0[0])
+#        print(x.eval(session=sess))
 
-        step_op.run(session=sess)
-        print(expected_1[0])
-        print(x.eval(session=sess))
+        step_op(session=sess)
+#        print(expected_1[0])
+#        print(x.eval(session=sess))
+#        print(expected_1[1])
+#        print(y.eval(session=sess))
         self.assertAlmostEqual(expected_1[0], x.eval(session=sess), 1e-6)
         self.assertAlmostEqual(expected_1[1], y.eval(session=sess), 1e-6)
 
-        step_op.run(session=sess)
+        step_op(session=sess)
         self.assertAlmostEqual(expected_2[0], x.eval(session=sess), 1e-6)
         self.assertAlmostEqual(expected_2[1], y.eval(session=sess), 1e-6)
 
-        step_op.run(session=sess)
+        step_op(session=sess)
         self.assertAlmostEqual(expected_3[0], x.eval(session=sess), 1e-6)
         self.assertAlmostEqual(expected_3[1], y.eval(session=sess), 1e-6)
