@@ -1,0 +1,6 @@
+#Results from gpu on desktop
+#N	fwd_euler	rk3
+32	1.37e-2	3.81e-2
+64	1.78e-2	5.17e-2
+128	5.34e-2	1.63e-1
+256	3.67e-1	1.13

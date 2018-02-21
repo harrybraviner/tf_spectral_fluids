@@ -10,3 +10,9 @@ I did some runs just to see how the time-per-step varied between the CPU and GPU
 <p>Anti-aliasing does increase the runtime:</p>
 
 <p><img src="./2_commit_04fbf979/time_gpu.png" alt="Anti-aliasing effect on runtime" title="" /></p>
+<h1>Changing from Forward Euler to RK3 timestepping</h1>
+
+<p>The time per step increases by about a factor of 3 (as expected).
+The two lines shown below differ by a factor of 3.</p>
+
+<p><img src="./3_c202184c/rk3.png" alt="Time-per-step as RK3 introduced" title="" /></p>
