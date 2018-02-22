@@ -38,26 +38,28 @@ def rk3_timestep(x, dx_dt, h):
     gamma = [8.0/15.0, 5.0/12.0, 3.0/4.0]
     xi = [-17.0/60.0, -5.0/12.0]
 
+    h_cast = tf.cast(h, dtype=tf.complex64)
+
     # Define variables for our auxilliary storage
     x1 = [tf.Variable(x) for x in x]
     #dx_dt_ = [tf.Variable(d) for d in dx_dt]    # Need this because updating x will update its value
 
     #step_1_d = functools.reduce(tf.group, [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)])
     #step_1_d = [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)]
-    step_1_x = [x.assign(x + gamma[0]*h*d) for (x, d) in zip(x, dx_dt)]
-    step_1_x1 = [x1.assign(x + xi[0]*h*d) for (x1, x, d) in zip(x1, step_1_x, dx_dt)]
+    step_1_x = [x.assign(x + gamma[0]*h_cast*d) for (x, d) in zip(x, dx_dt)]
+    step_1_x1 = [x1.assign(x + xi[0]*h_cast*d) for (x1, x, d) in zip(x1, step_1_x, dx_dt)]
 
     step_1_op = functools.reduce(tf.group, step_1_x + step_1_x1)
 
     #step_2_d = [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)] # This isn't updating properly - why not?
-    step_2_x = [x.assign(x1 + gamma[1]*h*d) for (x, x1, d) in zip(x, x1, dx_dt)]
-    step_2_x1 = [x1.assign(x + xi[1]*h*d) for (x1, x, d) in zip(x1, step_2_x, dx_dt)]
+    step_2_x = [x.assign(x1 + gamma[1]*h_cast*d) for (x, x1, d) in zip(x, x1, dx_dt)]
+    step_2_x1 = [x1.assign(x + xi[1]*h_cast*d) for (x1, x, d) in zip(x1, step_2_x, dx_dt)]
 
     step_2_op = functools.reduce(tf.group, step_2_x + step_2_x1)
 
 
     #step_3_d = [d_.assign(d) for (d_, d) in zip(dx_dt_, dx_dt)]
-    step_3_x = [x.assign(x1 + gamma[2]*h*d) for (x, x1, d) in zip(x, x1, dx_dt)]
+    step_3_x = [x.assign(x1 + gamma[2]*h_cast*d) for (x, x1, d) in zip(x, x1, dx_dt)]
 
     step_3_op = functools.reduce(tf.group, step_3_x)
 
@@ -94,10 +96,10 @@ def multi_assign_op(x, x_):
 
 def run_simulation():
     
-    N = 256
+    N = 128
     nu = 1.0
-    h = 1e-3
-    t_stop = 10.0
+    #h = 1e-3   # h now set by CFL condition
+    t_stop = 3.0
     t_log = 0.1
 
     def setup_sinusoid(N):
@@ -126,6 +128,9 @@ def run_simulation():
     v_dft_z = tf.Variable(v_dft_0[2], dtype=tf.complex64)
     v_dft = [v_dft_x, v_dft_y, v_dft_z]
     
+    # Body force of same magnitude as initial velocity
+    f_body = setup_sinusoid(N)
+
     masks = [tf.Variable(m, dtype=tf.float16)
              for m in alpha_navier_stokes.get_antialiasing_masks(alpha_navier_stokes.get_k_cmpts(N, N, N))]
 
@@ -135,7 +140,9 @@ def run_simulation():
     k_squared = tf.Variable(alpha_navier_stokes.get_k_squared(N, N, N), dtype=tf.float32)
     inv_k_squared = tf.Variable(alpha_navier_stokes.get_inverse_k_squared(N, N, N), dtype=tf.float32)
 
-    v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, None)
+    v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, None, f_body)
+
+    h = alpha_navier_stokes.cfl_timestep([N, N, N], v_dft)
 
     explicit_step_op = rk3_timestep(v_dft, v_dft_dt, h)
 
@@ -164,17 +171,18 @@ def run_simulation():
     timesteps_taken = 0
 
     t = 0.0
-    t_next_log = t + t_log
+    t_next_log = t
 
     while(t < t_stop):
+        h_this_step = h.eval(session = sess)  # Set h from CFL condition
         explicit_step_op(session = sess)
         implicit_step_op.run(session = sess)
-        t += h
+        t += h_this_step
         timesteps_taken += 1
 
         if (t >= t_next_log):
             ke = kinetic_energy.eval(session=sess)
-            print("t: {}\tKE: {}".format(t, ke))
+            print("t: {}\tKE: {}\th: {}".format(t, ke, h_this_step))
             while(t_next_log <= t):
                 t_next_log += t_log
 

@@ -3,7 +3,7 @@
 import tensorflow as tf
 import numpy as np
 
-def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
+def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu, f_dft):
     """Computes the Eularian derivative of the velocity.
     i.e. \partial_{t'} v = eularian_dt
     
@@ -13,7 +13,8 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
         k_cmpts: the wavevector components in each directions (a list of three tensors).
         k_squared: the squared magnitude of the wavenumber for each index. Tensor
         inverse_k_squared: the inverse squared magnitude of the wavenumber for each index, with the zero entry masked. Tensor
-        cmpt : the component of the velocity (0=x, 1=y, 2=z)
+        nu: The kinematic viscosity. Should be None for implicit viscosity is used.
+        f_dft: The dft of the body force components (list of 3 tensors).
 
     Returns:
         Time derivates of DFTs of velocity components (a list of 3 tensors).
@@ -35,13 +36,34 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, nu):
     neg_p_dy_dft = +1j*tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), p_dft)
     neg_p_dz_dft = +1j*tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), p_dft)
 
-    v_x_dt = D_x + neg_p_dx_dft
-    v_y_dt = D_y + neg_p_dy_dft
-    v_z_dt = D_z + neg_p_dz_dft
+    if f_dft is not None:
+        v_x_dt = D_x + neg_p_dx_dft + f_dft[0]
+        v_y_dt = D_y + neg_p_dy_dft + f_dft[1]
+        v_z_dt = D_z + neg_p_dz_dft + f_dft[2]
+    else:
+        v_x_dt = D_x + neg_p_dx_dft
+        v_y_dt = D_y + neg_p_dy_dft
+        v_z_dt = D_z + neg_p_dz_dft
 
     # FIXME - need to add anti-aliasing masking to this
 
     return [v_x_dt, v_y_dt, v_z_dt]
+
+def cfl_timestep(resolution, v_dft):
+    [N_x, N_y, N_z] = resolution
+
+    # FIXME - surely I can pass in the dft pre-convolution?
+    v = [tf.spectral.irfft3d(v_dft[i]) for i in range(3)]
+
+    v_max = [tf.reduce_max(tf.abs(v[i])) for i in range(3)]
+
+    # FIXME - this needs to be modified when we allow varied box dimensions
+    #         Currently assumes L=1 in every direction
+    gamma_v = 2.0*np.pi*(v_max[0]*(N_x**2) + v_max[1]*(N_y**2) + v_max[2]*(N_z**2))
+    param_cfl = 1.5
+
+    return param_cfl / gamma_v
+
 
 def velocity_convolution(v_dft, masks):
     """The convolution (in wavenumber space) of the velocity components.

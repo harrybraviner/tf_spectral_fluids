@@ -105,6 +105,20 @@ class ShearingBoxTests(unittest.TestCase):
         self.assertEqual(D_z.dtype, tf.complex64)
         self.assertEqual(D_z.shape.as_list(), shape)
 
+    def test_cfl_timestep(self):
+        N_x = 16; N_y = 8; N_z = 32
+        shape = [N_x, N_y, 1 + N_z//2]
+
+        vx_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        vy_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+        vz_dft = tf.Variable(tf.zeros(shape=shape, dtype=np.complex64), dtype=tf.complex64)
+
+        new_dt = alpha_navier_stokes.cfl_timestep([N_x, N_y, N_z], [vx_dft, vy_dft, vz_dft])
+
+        self.assertEqual(new_dt.dtype, tf.float32)
+        self.assertEqual(new_dt.shape.as_list(), [])
+
+
     def test_get_k_squared(self):
         N_x = 16; N_y = 8; N_z = 32
         shape = [N_x, N_y, 1 + N_z//2]
