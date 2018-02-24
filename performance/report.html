@@ -16,3 +16,10 @@ I did some runs just to see how the time-per-step varied between the CPU and GPU
 The two lines shown below differ by a factor of 3.</p>
 
 <p><img src="./3_c202184c/rk3.png" alt="Time-per-step as RK3 introduced" title="" /></p>
+<h1>Adding in the CFL condition</h1>
+
+<p>The CFL condition doesn't increase runtime per step much (though of course it will increase runtime per simulation time unit).
+Grey lines should the expected increase (11.1%, due to 3 new DFTs, compared to the 27 DFTs already required in RK3).
+We're acutally seeing a smaller fractional increase than this, so good.</p>
+
+<p><img src="./4_3707d467/cfl_timings.png" alt="Performance change on GPU as CFL condition added" title="" /></p>
