@@ -96,9 +96,9 @@ def multi_assign_op(x, x_):
 
 def run_simulation():
     
-    N = 64
+    N = 32
     nu = 1.0
-    h = 1e-3   # h now set by CFL condition
+    #h = 1e-3   # h now set by CFL condition
     t_stop = 3.0
     t_log = 0.1
     step_max = 100
@@ -143,8 +143,8 @@ def run_simulation():
 
     v_dft_dt = alpha_navier_stokes.eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inv_k_squared, None, f_body)
 
-    #h = tf.Variable(0.0, dtype=tf.float32)
-    #update_h_by_cfl = h.assign(alpha_navier_stokes.cfl_timestep([N, N, N], v_dft))
+    h = tf.Variable(0.0, dtype=tf.float32)
+    update_h_by_cfl = h.assign(alpha_navier_stokes.cfl_timestep([N, N, N], v_dft))
 
     explicit_step_op = rk3_timestep(v_dft, v_dft_dt, h)
 
@@ -176,7 +176,7 @@ def run_simulation():
     t_next_log = t
 
     while(t < t_stop):
-        h_this_step = h #update_h_by_cfl.eval(session = sess)  # Set h from CFL condition
+        h_this_step = update_h_by_cfl.eval(session = sess)  # Set h from CFL condition
         explicit_step_op(session = sess)
         implicit_step_op.run(session = sess)
         t += h_this_step
