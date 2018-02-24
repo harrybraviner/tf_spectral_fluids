@@ -23,3 +23,9 @@ Grey lines should the expected increase (11.1%, due to 3 new DFTs, compared to t
 We're acutally seeing a smaller fractional increase than this, so good.</p>
 
 <p><img src="./4_3707d467/cfl_timings.png" alt="Performance change on GPU as CFL condition added" title="" /></p>
+<h1>Tensorflow code versus snoopy</h1>
+
+<p>I did some runs using the tensorflow-based code on my desktop with the 1050Ti GPU, and some runs of snoopy using MPI with 4 processors on my laptop.
+At N=256 we get a speed-up by a factor of 10.2 for the GPU-accelerated code.</p>
+
+<p><img src="./5_vs_snoopy/vs_snoopy.png" alt="Snoopy vs GPU code" title="" /></p>
