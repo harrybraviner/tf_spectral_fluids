@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import unittest
 
-def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, mask, nu, f_dft):
+def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, masks, nu, f_dft):
     """Computes the Eularian derivative of the velocity.
     i.e. \partial_{t'} v = eularian_dt
     
@@ -48,9 +48,9 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, mask, nu, 
         v_z_dt = D_z + neg_p_dz_dft
 
     # FIXME - need to add anti-aliasing masking to this
-    masked_x = tf.multiply(v_x_dt, mask)
-    masked_y = tf.multiply(v_y_dt, mask)
-    masked_z = tf.multiply(v_z_dt, mask)
+    masked_x = tf.multiply(v_x_dt, tf.cast(masks[0], dtype=complex_type))
+    masked_y = tf.multiply(v_y_dt, tf.cast(masks[1], dtype=complex_type))
+    masked_z = tf.multiply(v_z_dt, tf.cast(masks[2], dtype=complex_type))
 
     return [masked_x, masked_y, masked_z]
 
@@ -82,7 +82,7 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
         else:
             raise ValueError
             
-    complex_type = c_dft[0].dtype.base_dtype
+    complex_type = v_dft[0].dtype.base_dtype
 
     # Advection
     D_adv = -1j*(tf.multiply(tf.cast(k_cmpts[0], dtype=complex_type), vv_dft[get_vv_cmpt(0, cmpt)]) \

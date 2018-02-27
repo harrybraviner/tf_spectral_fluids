@@ -2,7 +2,8 @@
 
 import tensorflow as tf
 import numpy as np
-import init_flow
+from functools import reduce
+import init_flow, wavevector, navier_stokes, integrator
 
 N = 32
 real_type = tf.float32
@@ -20,16 +21,16 @@ else:
 v_dft = [tf.Variable(v, dtype = complex_type) for v in init_flow.get_sinusoid(N, complex_type.as_numpy_dtype)]
 # Components of the velocity convolution
 # Ordering convention is [xx, yy, zz, xy, xz, yz]
-vv_dft = [tf.zeros(shape = v_dft[0].shape, dtype = complex_type) for _ in range(6)]
+vv_dft = [tf.Variable(tf.zeros(shape = v_dft[0].shape, dtype = complex_type)) for _ in range(6)]
 # Position space representation of the velocity field
-v_pos = tf.Variable(v_dft, dtype = real_type)
+v_pos = [tf.Variable(tf.zeros(shape = [N, N, N], dtype = real_type)) for v_dft in v_dft]
 # Components of the wavevectors
 k_cmpts = [tf.Variable(k, dtype=real_type) for k in wavevector.get_k_cmpts(N, N, N)]
 # Anti-aliasing masks (can these be replaced by a modified DFT?)
 masks = [tf.Variable(m, dtype = real_type)
          for m in wavevector.get_antialiasing_masks(N, N, N)]
 # Squared magnitude of the wavevector (for viscous decay)
-k_squared = tf.Variable(wavevector.get_k_squared(N, N, N))
+k_squared = tf.Variable(wavevector.get_k_squared(N, N, N), dtype=real_type)
 # Inverse k squared (for solving the pressure equation)
 inverse_k_squared = tf.Variable(wavevector.get_inverse_k_squared(N, N, N))
 
@@ -53,12 +54,12 @@ v_pos_update_op = reduce(tf.group, [v_pos.assign(x) for (v_pos, x) in zip(v_pos,
 with tf.control_dependencies([v_pos_update_op]):
     h_cfl_update_op = tf.group(h.assign(navier_stokes.compute_h_cfl(v_pos, k_cmpts, None)))
 with tf.control_dependencies([h_cfl_update_op]):
-    vv_dft_update_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in (vv_dft, navier_stokes.position_space_to_vv_dft(v_pos))])
+    vv_dft_update_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in zip(vv_dft, navier_stokes.position_space_to_vv_dft(v_pos))])
 # FIXME - output taps should go here
 with tf.control_dependencies([vv_dft_update_op]):
     def get_dx_dt (x, aux_input):
         return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, None)
-    explicit_step_op = integrator.get_rk3_op(v_dft, get_dx_dt, vv_dft, velocity_convolution, h)
+    explicit_step_op = integrator.get_rk3_op(v_dft, get_dx_dt, vv_dft, navier_stokes.velocity_convolution, h)
 with tf.control_dependencies([explicit_step_op]):
     implicit_step_op = reduce(tf.group, [v_dft.assign(x) for (v_dft, x) in zip(v_dft, navier_stokes.implicit_viscosity(v_dft, k_squared, nu, h))])
 with tf.control_dependencies([implicit_step_op]):

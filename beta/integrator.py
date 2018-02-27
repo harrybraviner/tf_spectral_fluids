@@ -24,6 +24,9 @@ def get_rk3_op(x, explicit_dx_dt, aux_input, make_aux_input, h):
     D = [tf.Variable(x) for x in x]
     x1 = [tf.Variable(x) for x in x]
 
+    x_type = x[0].dtype
+    h = tf.cast(h, dtype=x_type)
+
     # Step 1
     if aux_input is not None:
         step1_D_list = explicit_dx_dt(x, aux_input)
