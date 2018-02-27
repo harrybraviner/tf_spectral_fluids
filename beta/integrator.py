@@ -40,7 +40,7 @@ def get_rk3_op(x, explicit_dx_dt, aux_input, make_aux_input, h):
     # Step 2
     with tf.control_dependencies([step1_x]):
         if aux_input is not None:
-            step2_aux_input = make_aux_input(x)
+            step2_aux_input = make_aux_input(x) # FIXME - should do as assignment
             step2_D_list = explicit_dx_dt(x, step2_aux_input)
         else:
             step2_D_list = explicit_dx_dt(x)
@@ -55,7 +55,7 @@ def get_rk3_op(x, explicit_dx_dt, aux_input, make_aux_input, h):
     # Step 3
     with tf.control_dependencies([step2_x]):
         if aux_input is not None:
-            step3_aux_input = make_aux_input(x)
+            step3_aux_input = make_aux_input(x) # FIXME - should do as assignment
             step3_D_list = explicit_dx_dt(x, step3_aux_input)
         else:
             step3_D_list = explicit_dx_dt(x)

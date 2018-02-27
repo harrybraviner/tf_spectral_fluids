@@ -71,15 +71,17 @@ def get_k_cmpts(N_x, N_y, N_z):
 
     return [k_x, k_y, k_z]
 
-def get_antialiasing_masks(k_cmpts):
+def get_antialiasing_masks(N_x, N_y, N_z):
     """Masks for anti-aliasing.
 
     Arguments:
-        k_cmpts : The wave-vector componets, a list of three ndarrays.
+        N_x, N_y, N_z : The number of collocation points in each direction
 
     Returns:
         A list of three ndarrays, of shapes [N_x, 1, 1], [1, N_y, 1], and [1, 1, N_z//2 + 1] respectively.
     """
+
+    k_cmpts = get_k_cmpts(N_x, N_y, N_z) # Not exactly efficient, but only happens at setup so I don't care
 
     k_x_max = np.max(abs(k_cmpts[0]))
     k_y_max = np.max(abs(k_cmpts[1]))

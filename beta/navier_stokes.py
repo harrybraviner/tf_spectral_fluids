@@ -8,7 +8,7 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, mask, nu, 
     
     Arguments:
         v_dft: the DFT of the three velocity components (rank [3, N_x, N_y, N_z//2 + 1] tensor)
-        vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
+        vv_dft: the DFT of v[i]*v[j] (list of 6 tensors, xx, yy, zz, xy, xz, yz).
         k_cmpts: the wavevector components in each directions (a list of three tensors).
         k_squared: the squared magnitude of the wavenumber for each index. Tensor
         inverse_k_squared: the inverse squared magnitude of the wavenumber for each index, with the zero entry masked. Tensor
@@ -20,21 +20,23 @@ def eularian_dt(v_dft, vv_dft, k_cmpts, k_squared, inverse_k_squared, mask, nu, 
         Time derivates of DFTs of velocity components (a list of 3 tensors).
     """
 
+    complex_type = v_dft[0].dtype.base_dtype
+
     D_x = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 0)
     D_y = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 1)
     D_z = eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, 2)
 
     p_dft = \
         -1j*tf.multiply(
-                tf.multiply(tf.cast(k_cmpts[0], dtype=tf.complex64), D_x) \
-              + tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), D_y) \
-              + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), D_z),
-                tf.cast(inverse_k_squared, dtype=tf.complex64))
+                tf.multiply(tf.cast(k_cmpts[0], dtype=complex_type), D_x) \
+              + tf.multiply(tf.cast(k_cmpts[1], dtype=complex_type), D_y) \
+              + tf.multiply(tf.cast(k_cmpts[2], dtype=complex_type), D_z),
+                tf.cast(inverse_k_squared, dtype=complex_type))
     
     # Negative of pressure gradients (i.e. direction of pressure force)
-    neg_p_dx_dft = +1j*tf.multiply(tf.cast(k_cmpts[0], dtype=tf.complex64), p_dft)
-    neg_p_dy_dft = +1j*tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), p_dft)
-    neg_p_dz_dft = +1j*tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), p_dft)
+    neg_p_dx_dft = +1j*tf.multiply(tf.cast(k_cmpts[0], dtype=complex_type), p_dft)
+    neg_p_dy_dft = +1j*tf.multiply(tf.cast(k_cmpts[1], dtype=complex_type), p_dft)
+    neg_p_dz_dft = +1j*tf.multiply(tf.cast(k_cmpts[2], dtype=complex_type), p_dft)
 
     if f_dft is not None:
         v_x_dt = D_x + neg_p_dx_dft + f_dft[0]
@@ -58,22 +60,39 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
 
     Arguments:
         v_dft: the DFT of the three velocity components (a list of three tensors).
-        vv_dft: the DFT of v[i]*v[j] (a 3x3 list of tensors)
+        vv_dft: the DFT of v[i]*v[j] (list of 6 tensors, xx, yy, zz, xy, xz, yz).
         k_cmpts: the wavevector components in each directions (a list of three tensors).
         k_squared: the squared magnitude of the wavenumber for each index. Tensor.
         nu: Kinematic viscosity. Use None to skip the viscous dissipation.
         cmpt : the component of the velocity (0=x, 1=y, 2=z)
     """
     
+    def get_vv_cmpt(i, j):
+        # Convert to single index
+        if i == j:
+            return i
+        if i > j:
+            return get_vv_cmpt(j, i)
+        elif i==0 and j==1:
+            return 3
+        elif i==0 and j==2:
+            return 4
+        elif i==1 and j==2:
+            return 5
+        else:
+            raise ValueError
+            
+    complex_type = c_dft[0].dtype.base_dtype
+
     # Advection
-    D_adv = -1j*(tf.multiply(tf.cast(k_cmpts[0], dtype=tf.complex64), vv_dft[0][cmpt]) \
-                 + tf.multiply(tf.cast(k_cmpts[1], dtype=tf.complex64), vv_dft[1][cmpt]) \
-                 + tf.multiply(tf.cast(k_cmpts[2], dtype=tf.complex64), vv_dft[2][cmpt]))
+    D_adv = -1j*(tf.multiply(tf.cast(k_cmpts[0], dtype=complex_type), vv_dft[get_vv_cmpt(0, cmpt)]) \
+                 + tf.multiply(tf.cast(k_cmpts[1], dtype=complex_type), vv_dft[get_vv_cmpt(1, cmpt)]) \
+                 + tf.multiply(tf.cast(k_cmpts[2], dtype=complex_type), vv_dft[get_vv_cmpt(2, cmpt)]))
 
     # Viscoity
     if nu is not None:
         D_visc = -nu*tf.multiply(v_dft[cmpt],
-                                 tf.cast(k_squared, dtype=tf.complex64),
+                                 tf.cast(k_squared, dtype=complex_type),
                                  name = "NS_viscosity")
 
     if nu is not None:
@@ -81,6 +100,29 @@ def eularian_dt_single(v_dft, vv_dft, k_cmpts, k_squared, nu, cmpt):
     else:
         D = D_adv
     return D
+
+def implicit_viscosity(v_dft, k_squared, nu, h):
+    """The velocity field decayed by the viscosity.
+    This is more stable than using explicit dissipation.
+
+    Arguments:
+        v_dft: the DFT of the three velocity components (a list of three tensors).
+        k_squared: the squared magnitude of the wavenumber for each index. Tensor.
+        nu: Kinematic viscosity. Use None to skip the viscous dissipation.
+        h: The timestep
+
+    Returns:
+        The velocity components decayed by the viscosity (a list of 3 tensors).
+    """
+
+    complex_type = v_dft[0].dtype.base_dtype
+
+    decay = tf.cast(tf.exp(-nu*h*k_squared), dtype=complex_type)
+    v_dft_x_visc = tf.multiply(decay, v_dft[0])
+    v_dft_y_visc = tf.multiply(decay, v_dft[1])
+    v_dft_z_visc = tf.multiply(decay, v_dft[2])
+
+    return [v_dft_x_visc, v_dft_y_visc, v_dft_z_visc]
 
 def compute_h_cfl(v_pos, k_cmpts, h_max):
     """Compute timestep from the CFL stability condition.
