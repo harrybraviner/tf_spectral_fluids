@@ -145,9 +145,9 @@ def compute_h_cfl(v_pos, k_cmpts, h_max):
     gamma_v = kx_max*vx_max + ky_max*vx_max + kz_max*vz_max
 
     if h_max is not None:
-        raise NotImplementedError
-
-    return 1.5 / gamma_v
+        return 1.5 / (gamma_v + 1.5 / h_max)
+    else:
+        return 1.5 / gamma_v
 
 
 def freq_to_position_space(v_dft):
@@ -206,3 +206,31 @@ def velocity_convolution(v_dft):
     conv = position_space_to_vv_dft(v_pos)
 
     return conv
+
+def energy(field_dft):
+    """The 'energy' of a field component.
+    Really the spatial integral of the squared magnitude.
+    For kinetic energy need to call this with vx, vy, and vz and sum.
+
+    Note that this assumes the DFT is passed in, due to the factor
+    of 1/(N^3)
+    """
+
+    # This is N^3 for a square box, Nx*Ny*Nz more generally.
+    N3 = field_dft.shape.num_elements()
+
+    # Need to double-count the k_z != 0 components due to the half-real representation
+    # Would this be more efficient as a broadcast of [[[1.0, 2.0, 2.0, ..., 2.0]]]?
+    a = 2.0*tf.reduce_sum(tf.multiply(field_dft, tf.conj(field_dft)))
+    b = tf.reduce_sum(tf.multiply(field_dft[:, :, 0], tf.conj(field_dft[:, :, 0])))
+    return (1.0/(2.0*(N3)**2))*(a - b)
+
+def vector_energy(vv_dft):
+    """
+
+    Arguments:
+        vv_dft: The convolution of the DFT of the vector field.
+                Assumed to be ordered as xx, yy, zz, xy, xz, yz.
+    """
+
+    return energy(vv_dft[0]) + energy(vv_dft[1]) + energy(vv_dft[2])

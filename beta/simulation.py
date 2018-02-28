@@ -33,6 +33,10 @@ masks = [tf.Variable(m, dtype = real_type)
 k_squared = tf.Variable(wavevector.get_k_squared(N, N, N), dtype=real_type)
 # Inverse k squared (for solving the pressure equation)
 inverse_k_squared = tf.Variable(wavevector.get_inverse_k_squared(N, N, N))
+# (The DFT of) the constant body force
+f_body = [tf.Variable(f_body, dtype=complex_type) for f_body in init_flow.get_sinusoid(N, complex_type.as_numpy_dtype)]
+# Output variables
+kinetic_energy = tf.Variable(0.0, dtype=complex_type) # FIXME - should make this real eventually
 
 h = tf.Variable(0, dtype=real_type) # Time-step size
 t = tf.Variable(t_start, dtype=real_type)
@@ -52,18 +56,38 @@ nu = 1.0
 
 v_pos_update_op = reduce(tf.group, [v_pos.assign(x) for (v_pos, x) in zip(v_pos, navier_stokes.freq_to_position_space(v_dft))])
 with tf.control_dependencies([v_pos_update_op]):
-    h_cfl_update_op = tf.group(h.assign(navier_stokes.compute_h_cfl(v_pos, k_cmpts, None)))
+    h_cfl_update_op = tf.group(h.assign(navier_stokes.compute_h_cfl(v_pos, k_cmpts, h_max=1e-3)))
 with tf.control_dependencies([h_cfl_update_op]):
     vv_dft_update_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in zip(vv_dft, navier_stokes.position_space_to_vv_dft(v_pos))])
-# FIXME - output taps should go here
+with tf.control_dependencies([vv_dft_update_op]):
+    # FIXME - more output taps should go here
+    energy_update_op = tf.group(kinetic_energy.assign(navier_stokes.vector_energy(vv_dft)))
 with tf.control_dependencies([vv_dft_update_op]):
     def get_dx_dt (x, aux_input):
-        return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, None)
+        return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, f_body)
     explicit_step_op = integrator.get_rk3_op(v_dft, get_dx_dt, vv_dft, navier_stokes.velocity_convolution, h)
 with tf.control_dependencies([explicit_step_op]):
     implicit_step_op = reduce(tf.group, [v_dft.assign(x) for (v_dft, x) in zip(v_dft, navier_stokes.implicit_viscosity(v_dft, k_squared, nu, h))])
-with tf.control_dependencies([implicit_step_op]):
+with tf.control_dependencies([implicit_step_op, energy_update_op]):
     t_update_op = t.assign(t + h)
     step_count_update_op = step_count.assign(step_count + 1)
 step_op = tf.group(t_update_op, step_count_update_op)
 
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+t_ = t.eval(session = sess)
+sc_ = step_count.eval(session = sess)
+print('t: {}'.format(t_))
+print('h: {}'.format(h.eval(session=sess)))
+print('ke: {}'.format(kinetic_energy.eval(session=sess)))
+print('step count: {}'.format(sc_))
+for i in range(51):
+    sess.run(step_op)
+    if (i%10 == 0):
+        t_ = t.eval(session = sess)
+        sc_ = step_count.eval(session = sess)
+        print('t: {}'.format(t_))
+        print('h: {}'.format(h.eval(session=sess)))
+        print('ke: {}'.format(kinetic_energy.eval(session=sess)))
+        print('step count: {}'.format(sc_))
