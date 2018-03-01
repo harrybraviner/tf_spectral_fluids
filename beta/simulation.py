@@ -61,14 +61,16 @@ with tf.control_dependencies([h_cfl_update_op]):
     vv_dft_update_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in zip(vv_dft, navier_stokes.position_space_to_vv_dft(v_pos))])
 with tf.control_dependencies([vv_dft_update_op]):
     # FIXME - more output taps should go here
-    energy_update_op = tf.group(kinetic_energy.assign(navier_stokes.vector_energy(vv_dft)))
-with tf.control_dependencies([vv_dft_update_op]):
+    # FIXME - should also be logging t and step_count here
+    # FIXME - should actually move this to the end - don't really need it here to compute energy! (don't need vv_dft)
+    energy_update_op = tf.group(kinetic_energy.assign(navier_stokes.vector_energy(v_dft)))
+with tf.control_dependencies([energy_update_op]):
     def get_dx_dt (x, aux_input):
-        return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, f_body)
+        return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, None)
     explicit_step_op = integrator.get_rk3_op(v_dft, get_dx_dt, vv_dft, navier_stokes.velocity_convolution, h)
 with tf.control_dependencies([explicit_step_op]):
     implicit_step_op = reduce(tf.group, [v_dft.assign(x) for (v_dft, x) in zip(v_dft, navier_stokes.implicit_viscosity(v_dft, k_squared, nu, h))])
-with tf.control_dependencies([implicit_step_op, energy_update_op]):
+with tf.control_dependencies([implicit_step_op]):
     t_update_op = t.assign(t + h)
     step_count_update_op = step_count.assign(step_count + 1)
 step_op = tf.group(t_update_op, step_count_update_op)
@@ -84,9 +86,10 @@ print('ke: {}'.format(kinetic_energy.eval(session=sess)))
 print('step count: {}'.format(sc_))
 for i in range(51):
     sess.run(step_op)
-    if (i%10 == 0):
+    if (i%10 == 0 or i == 0 or i == 1):
         t_ = t.eval(session = sess)
         sc_ = step_count.eval(session = sess)
+        print('v[1]: {}'.format(v_dft[1].eval(session=sess)[1, 0, 0]))
         print('t: {}'.format(t_))
         print('h: {}'.format(h.eval(session=sess)))
         print('ke: {}'.format(kinetic_energy.eval(session=sess)))

@@ -217,7 +217,9 @@ def energy(field_dft):
     """
 
     # This is N^3 for a square box, Nx*Ny*Nz more generally.
-    N3 = field_dft.shape.num_elements()
+    [Nx, Ny, Nz_half] = field_dft.shape.as_list()
+    Nz = (Nz_half - 1) * 2
+    N3 = Nx*Ny*Nz
 
     # Need to double-count the k_z != 0 components due to the half-real representation
     # Would this be more efficient as a broadcast of [[[1.0, 2.0, 2.0, ..., 2.0]]]?
@@ -225,7 +227,7 @@ def energy(field_dft):
     b = tf.reduce_sum(tf.multiply(field_dft[:, :, 0], tf.conj(field_dft[:, :, 0])))
     return (1.0/(2.0*(N3)**2))*(a - b)
 
-def vector_energy(vv_dft):
+def vector_energy(v_dft):
     """
 
     Arguments:
@@ -233,4 +235,4 @@ def vector_energy(vv_dft):
                 Assumed to be ordered as xx, yy, zz, xy, xz, yz.
     """
 
-    return energy(vv_dft[0]) + energy(vv_dft[1]) + energy(vv_dft[2])
+    return energy(v_dft[0]) + energy(v_dft[1]) + energy(v_dft[2])
