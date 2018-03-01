@@ -142,7 +142,7 @@ def compute_h_cfl(v_pos, k_cmpts, h_max):
     ky_max = tf.reduce_max(tf.abs(k_cmpts[1]))
     kz_max = tf.reduce_max(tf.abs(k_cmpts[2]))
 
-    gamma_v = kx_max*vx_max + ky_max*vx_max + kz_max*vz_max
+    gamma_v = kx_max*vx_max + ky_max*vy_max + kz_max*vz_max
 
     if h_max is not None:
         return 1.5 / (gamma_v + 1.5 / h_max)
