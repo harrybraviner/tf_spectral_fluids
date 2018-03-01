@@ -62,7 +62,7 @@ with tf.control_dependencies([h_cfl_update_op]):
     vv_dft_update_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in zip(vv_dft, navier_stokes.position_space_to_vv_dft(v_pos))])
 with tf.control_dependencies([vv_dft_update_op]):
     def get_dx_dt (x, aux_input):
-        return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, None)
+        return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, f_body)
     explicit_step_op = integrator.get_rk3_op(v_dft, get_dx_dt, vv_dft, navier_stokes.velocity_convolution, h)
 with tf.control_dependencies([explicit_step_op]):
     implicit_step_op = reduce(tf.group, [v_dft.assign(x) for (v_dft, x) in zip(v_dft, navier_stokes.implicit_viscosity(v_dft, k_squared, nu, h))])
