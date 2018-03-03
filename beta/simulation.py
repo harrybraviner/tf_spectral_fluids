@@ -11,6 +11,8 @@ real_type = tf.float32
 t_start = 0.0
 steps_max = None
 
+output_filename = "timevar"
+outfile = open(output_filename, 'wt')
 
 if real_type == tf.float32:
     complex_type = tf.complex64
@@ -85,9 +87,10 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 initial_energy_update_op.run(session=sess)
 
+outfile.write('#t\tke\th\twall_clock\tstep\n')
+
 t_ = t.eval(session = sess)
 sc_ = step_count.eval(session = sess)
-print('v[1]: {}'.format(v_dft[1].eval(session=sess)[1, 0, 0]))
 print('t: {}'.format(t_))
 print('h: {}'.format(h.eval(session=sess)))
 print('ke: {}'.format(kinetic_energy.eval(session=sess)))
@@ -111,9 +114,20 @@ for i in range(501):
         print('h: {}'.format(h.eval(session=sess)))
         print('ke: {}'.format(kinetic_energy.eval(session=sess)))
         print('step count: {}'.format(sc_))
+
+        outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(
+            t.eval(session = sess),
+            kinetic_energy.eval(session = sess).real,
+            h.eval(session = sess),
+            (time.time() - start_time),
+            step_count.eval(session = sess)
+            ))
+        outfile.flush()
         #sys.exit(-1)
 
 print('Done')
 end_time = time.time()
 sc_ = step_count.eval(session=sess)
 print('Time per step: {}'.format((end_time - start_time)/sc_))
+
+outfile.close()
