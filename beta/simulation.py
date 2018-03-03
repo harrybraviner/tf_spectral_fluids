@@ -33,9 +33,7 @@ masks = [tf.Variable(m, dtype = real_type)
 # Squared magnitude of the wavevector (for viscous decay)
 k_squared = tf.Variable(wavevector.get_k_squared(N, N, N), dtype=real_type)
 # Inverse k squared (for solving the pressure equation)
-inverse_k_squared = tf.Variable(wavevector.get_inverse_k_squared(N, N, N))
-# (The DFT of) the constant body force
-f_body = [tf.Variable(f_body, dtype=complex_type) for f_body in init_flow.get_sinusoid(N, complex_type.as_numpy_dtype)]
+inverse_k_squared = tf.Variable(wavevector.get_inverse_k_squared(N, N, N), dtype=real_type)
 # Output variables
 kinetic_energy = tf.Variable(0.0, dtype=complex_type) # FIXME - should make this real eventually
 
@@ -43,6 +41,11 @@ h = tf.Variable(0, dtype=real_type) # Time-step size
 t = tf.Variable(t_start, dtype=real_type)
 step_count = tf.Variable(0, dtype=tf.int32)
 nu = 1.0
+
+# (The DFT of) the constant body force
+f_body_0 = [tf.Variable(f_body, dtype=complex_type) for f_body in init_flow.get_sinusoid(N, complex_type.as_numpy_dtype)]
+f_body = [tf.Variable(f_body, dtype=complex_type) for f_body in init_flow.get_sinusoid(N, complex_type.as_numpy_dtype)]
+#f_body = [tf.cast((1 - tf.exp(-nu * k_squared * h)) * inverse_k_squared / (nu*h), dtype=complex_type) * f_body for f_body in init_flow.get_sinusoid(N, complex_type.as_numpy_dtype)]
 
 #refresh_vv_dft_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in zip(vv_dft, navier_stokes.velocity_convolution())])
 
@@ -57,10 +60,12 @@ nu = 1.0
 
 v_pos_update_op = reduce(tf.group, [v_pos.assign(x) for (v_pos, x) in zip(v_pos, navier_stokes.freq_to_position_space(v_dft))])
 with tf.control_dependencies([v_pos_update_op]):
-    h_cfl_update_op = tf.group(h.assign(navier_stokes.compute_h_cfl(v_pos, k_cmpts, h_max=1e-3)))
+    h_cfl_update_op = tf.group(h.assign(navier_stokes.compute_h_cfl(v_pos, k_cmpts, h_max=1.0)))
 with tf.control_dependencies([h_cfl_update_op]):
     vv_dft_update_op = reduce(tf.group, [vv_dft.assign(x) for (vv_dft, x) in zip(vv_dft, navier_stokes.position_space_to_vv_dft(v_pos))])
 with tf.control_dependencies([vv_dft_update_op]):
+    f_body_update_op = reduce(tf.group, [f_body.assign(tf.cast((-1 + tf.exp(+nu * (2.0*np.pi)**2 * h)) * inverse_k_squared / (nu*h), dtype=complex_type) * f_body_0) for (f_body, f_body_0) in zip(f_body, f_body_0)])
+with tf.control_dependencies([f_body_update_op]):
     def get_dx_dt (x, aux_input):
         return navier_stokes.eularian_dt(x, aux_input, k_cmpts, k_squared, inverse_k_squared, masks, None, f_body)
     explicit_step_op = integrator.get_rk3_op(v_dft, get_dx_dt, vv_dft, navier_stokes.velocity_convolution, h)
@@ -82,6 +87,7 @@ initial_energy_update_op.run(session=sess)
 
 t_ = t.eval(session = sess)
 sc_ = step_count.eval(session = sess)
+print('v[1]: {}'.format(v_dft[1].eval(session=sess)[1, 0, 0]))
 print('t: {}'.format(t_))
 print('h: {}'.format(h.eval(session=sess)))
 print('ke: {}'.format(kinetic_energy.eval(session=sess)))
@@ -93,10 +99,19 @@ for i in range(501):
         t_ = t.eval(session = sess)
         sc_ = step_count.eval(session = sess)
         print('v[1]: {}'.format(v_dft[1].eval(session=sess)[1, 0, 0]))
+        print('v[-1]: {}'.format(v_dft[1].eval(session=sess)[N-1, 0, 0]))
+        print('f_0[1]: {}'.format(f_body_0[1].eval(session=sess)[1, 0, 0]))
+        #for f in f_body[1].eval(session=sess).flatten():
+        #    print(f)
+        print('f[1]: {}'.format(f_body[1].eval(session=sess)[1, 0, 0]))
+        print('f[0]: {}'.format(f_body[1].eval(session=sess)[0, 0, 0]))
+        print('k2[1]: {}'.format(k_squared.eval(session=sess)[1, 0, 0]))
+        print('ik2[1]: {}'.format(inverse_k_squared.eval(session=sess)[1, 0, 0]))
         print('t: {}'.format(t_))
         print('h: {}'.format(h.eval(session=sess)))
         print('ke: {}'.format(kinetic_energy.eval(session=sess)))
         print('step count: {}'.format(sc_))
+        #sys.exit(-1)
 
 print('Done')
 end_time = time.time()
